@@ -102,6 +102,7 @@ class RajProEngine:
         self.pe3O = None
         self.pe4O = None
         self.current_date = None
+        self.market_is_open = False  # Track if market is open today
 
         # ===== HISTORY TRACKING =====
         self.dominance_history = deque(maxlen=50)
@@ -132,6 +133,11 @@ class RajProEngine:
         """
         EXACT Pine Script pipeline
         """
+
+        # ===== STEP 0: DETECT MARKET STATUS =====
+        self.market_is_open = self._is_market_open()
+        market_status = "🟢 OPEN" if self.market_is_open else "🔴 CLOSED/HOLIDAY"
+        print(f"\n[DEBUG] Market Status: {market_status}")
 
         # ===== STEP 1: DAY CHANGE DETECTION =====
         today = date.today()
@@ -190,18 +196,19 @@ class RajProEngine:
             except (ValueError, TypeError):
                 continue
 
-        # Get premiums with fallback logic
-        ce1N = self._get_premium(chain_dict, ce_strikes[0], "call")
-        ce2N = self._get_premium(chain_dict, ce_strikes[1], "call")
-        ce3N = self._get_premium(chain_dict, ce_strikes[2], "call")
-        ce4N = self._get_premium(chain_dict, ce_strikes[3], "call")
-        pe1N = self._get_premium(chain_dict, pe_strikes[0], "put")
-        pe2N = self._get_premium(chain_dict, pe_strikes[1], "put")
-        pe3N = self._get_premium(chain_dict, pe_strikes[2], "put")
-        pe4N = self._get_premium(chain_dict, pe_strikes[3], "put")
+        # Get premiums using OHLC (Open=baseline, Close=current)
+        # This works whether market is open or closed!
+        ce1O_api, ce1N = self._get_ohlc_premiums(chain_dict, ce_strikes[0], "call")
+        ce2O_api, ce2N = self._get_ohlc_premiums(chain_dict, ce_strikes[1], "call")
+        ce3O_api, ce3N = self._get_ohlc_premiums(chain_dict, ce_strikes[2], "call")
+        ce4O_api, ce4N = self._get_ohlc_premiums(chain_dict, ce_strikes[3], "call")
+        pe1O_api, pe1N = self._get_ohlc_premiums(chain_dict, pe_strikes[0], "put")
+        pe2O_api, pe2N = self._get_ohlc_premiums(chain_dict, pe_strikes[1], "put")
+        pe3O_api, pe3N = self._get_ohlc_premiums(chain_dict, pe_strikes[2], "put")
+        pe4O_api, pe4N = self._get_ohlc_premiums(chain_dict, pe_strikes[3], "put")
 
-        print(f"[DEBUG] CE Premiums: {ce1N:.2f}, {ce2N:.2f}, {ce3N:.2f}, {ce4N:.2f}")
-        print(f"[DEBUG] PE Premiums: {pe1N:.2f}, {pe2N:.2f}, {pe3N:.2f}, {pe4N:.2f}")
+        print(f"[DEBUG] CE Premium API: Open={ce1O_api:.2f}/{ce2O_api:.2f}/{ce3O_api:.2f}/{ce4O_api:.2f}, Current={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
+        print(f"[DEBUG] PE Premium API: Open={pe1O_api:.2f}/{pe2O_api:.2f}/{pe3O_api:.2f}/{pe4O_api:.2f}, Current={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
 
         # ===== STEP 5: CALCULATE MEDIAN (Pine Script exact) =====
         vc = 0
@@ -217,16 +224,17 @@ class RajProEngine:
         # ===== STEP 6: STORE DAY OPEN PREMIUMS (Pine Script: var logic) =====
         # Use opening premiums from session state if available (persistent across runs)
         if nDay:
-            # Day changed - use current market premiums as opening baseline
-            self.ce1O = ce1N
-            self.ce2O = ce2N
-            self.ce3O = ce3N
-            self.ce4O = ce4N
-            self.pe1O = pe1N
-            self.pe2O = pe2N
-            self.pe3O = pe3N
-            self.pe4O = pe4N
-            print(f"[DEBUG] NEW DAY - Set opening premiums from market: CE1={ce1N:.2f}, PE1={pe1N:.2f}")
+            # Day changed - use OHLC OPEN prices as opening baseline (from API)
+            # This captures yesterday's open price (works when market closed or on fresh open)
+            self.ce1O = ce1O_api if ce1O_api > 0 else ce1N
+            self.ce2O = ce2O_api if ce2O_api > 0 else ce2N
+            self.ce3O = ce3O_api if ce3O_api > 0 else ce3N
+            self.ce4O = ce4O_api if ce4O_api > 0 else ce4N
+            self.pe1O = pe1O_api if pe1O_api > 0 else pe1N
+            self.pe2O = pe2O_api if pe2O_api > 0 else pe2N
+            self.pe3O = pe3O_api if pe3O_api > 0 else pe3N
+            self.pe4O = pe4O_api if pe4O_api > 0 else pe4N
+            print(f"[DEBUG] NEW DAY - Set opening premiums from OHLC API data: CE1={self.ce1O:.2f}, PE1={self.pe1O:.2f}")
         elif opening_premiums and opening_premiums.get("ce1O") is not None:
             # Same day - load persisted opening premiums from session state
             try:
@@ -458,25 +466,56 @@ class RajProEngine:
         print(f"[DEBUG] Strike {strike} ({opt_type}): LTP = {ltp:.2f} (from {source})")
         return ltp
 
-    def _get_opening_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
-        """Get yesterday's opening price (for erosion when market is closed)"""
+    def _is_market_open(self) -> bool:
+        """Check if market is open based on IST time (09:15 to 15:30)"""
+        try:
+            import pytz
+            ist = pytz.timezone("Asia/Kolkata")
+            now_ist = datetime.now(ist)
+            current_time = now_ist.time()
+
+            # Market hours: 09:15 to 15:30 IST
+            market_open_time = datetime.strptime("09:15", "%H:%M").time()
+            market_close_time = datetime.strptime("15:30", "%H:%M").time()
+
+            # Check if weekday (Monday=0, Sunday=6)
+            is_weekday = now_ist.weekday() < 5  # Monday to Friday
+
+            is_open = is_weekday and market_open_time <= current_time <= market_close_time
+            return is_open
+        except:
+            # Default to open if can't determine
+            return True
+
+    def _get_ohlc_premiums(self, chain_dict: Dict, strike: int, opt_type: str) -> Tuple[float, float]:
+        """Extract OHLC premiums from chain (for erosion calculation)
+        Returns: (opening_premium, closing_premium)
+
+        When market is OPEN today: Uses today's OHLC Open and Close (real-time decay)
+        When market is CLOSED/HOLIDAY: Uses yesterday's OHLC Open and Close (daily decay)
+        """
         if strike not in chain_dict:
-            return 0.0
+            return 0.0, 0.0
 
         row = chain_dict[strike]
         opt_data = row.get("call_options" if opt_type == "call" else "put_options") or {}
         market_data = opt_data.get("market_data") or {}
 
-        # For closed market: Use yesterday's open as baseline
-        # Try open_price field if available
-        open_price = float(market_data.get("open_price") or 0)
+        # Try to get OHLC data
+        ohlc = market_data.get("ohlc") or {}
 
-        # If no open_price, estimate from close_price (assume minimal gap)
-        if open_price <= 0:
-            open_price = float(market_data.get("close_price") or 0)
+        opening_premium = float(ohlc.get("open") or 0)
+        closing_premium = float(ohlc.get("close") or 0)
 
-        print(f"[DEBUG] Strike {strike} ({opt_type}): Opening price = {open_price:.2f}")
-        return open_price
+        # If OHLC not available, use open_price and close_price fields
+        if opening_premium <= 0:
+            opening_premium = float(market_data.get("open_price") or 0)
+        if closing_premium <= 0:
+            closing_premium = float(market_data.get("close_price") or 0)
+
+        market_status = "OPEN" if self.market_is_open else "CLOSED/HOLIDAY"
+        print(f"[DEBUG] Strike {strike} ({opt_type}): OHLC ({market_status}): Open={opening_premium:.2f}, Close={closing_premium:.2f}")
+        return opening_premium, closing_premium
 
     def _build_spike_signal(self, rss_bull, rss_bear, otm_bull, otm_bear, spikes_bull, spikes_bear, strong_move) -> str:
         """Build spike signal matching Pine Script"""
