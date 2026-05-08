@@ -135,7 +135,13 @@ class RajProEngine:
 
         # ===== STEP 1: DAY CHANGE DETECTION =====
         today = date.today()
-        nDay = self.current_date != today
+        today_str = str(today)
+
+        # Check if date from opening_premiums matches today
+        stored_date = opening_premiums.get("date") if opening_premiums else None
+        nDay = stored_date != today_str  # Day changed if stored date != today
+
+        print(f"[DEBUG] Today: {today_str}, Stored date: {stored_date}, nDay: {nDay}")
 
         if nDay:
             # Reset all day-open variables (Pine Script: var logic)
@@ -148,7 +154,7 @@ class RajProEngine:
             self.pe3O = None
             self.pe4O = None
             self.current_date = today
-            print(f"[DEBUG] Day changed - resetting opening premiums")
+            print(f"[DEBUG] DAY CHANGED! Resetting opening premiums")
 
         # ===== STEP 2: STRIKE GAP & ATM CALCULATION (matching Pine Script) =====
         sGap = strike_gap
