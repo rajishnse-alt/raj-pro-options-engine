@@ -329,24 +329,39 @@ class RajProEngine:
         )
 
     def _get_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
-        """Extract premium from chain - matches working Upstox structure"""
+        """Extract premium from chain - LTP with close_price/bid-ask fallbacks"""
         if strike not in chain_dict:
             return 0.0
 
         row = chain_dict[strike]
 
-        # Match the proven working app's structure
+        # Get call_options or put_options
         if opt_type == "call":
             opt_data = row.get("call_options") or {}
         else:
             opt_data = row.get("put_options") or {}
 
-        # Direct access to market_data.ltp (proven working pattern)
         market_data = opt_data.get("market_data") or {}
-        ltp = float(market_data.get("ltp") or 0)
 
-        print(f"[DEBUG] Strike {strike} ({opt_type}): LTP = {ltp}")
-        return ltp
+        # Try LTP first
+        ltp = float(market_data.get("ltp") or 0)
+        source = "ltp"
+
+        # If LTP is 0, use close_price as fallback (Upstox sometimes has 0 LTP for illiquid strikes)
+        if ltp <= 0:
+            ltp = float(market_data.get("close_price") or 0)
+            source = "close_price"
+
+        # If still 0, try bid/ask average
+        if ltp <= 0:
+            bid = float(market_data.get("bid_price") or 0)
+            ask = float(market_data.get("ask_price") or 0)
+            if bid > 0 and ask > 0:
+                ltp = (bid + ask) / 2
+                source = "bid/ask_avg"
+
+        print(f"[DEBUG] Strike {strike} ({opt_type}): LTP = {ltp} (from {source})")
+        return ltp  # ✓ Returns real value with fallbacks
 
     def _build_spike_signal(self, rss_bull, rss_bear, otm_bull, otm_bear, spikes_bull, spikes_bear, strong_move) -> str:
         """Build spike signal"""

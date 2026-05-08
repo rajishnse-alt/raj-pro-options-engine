@@ -14,6 +14,8 @@ from io import StringIO
 from pathlib import Path
 
 from engine_exact import RajProEngine
+from gamma_analysis import GammaAnalyzer
+from complete_table import RajProTable
 
 # ─────────────────────────────────────────────
 # LOG CAPTURE SETUP - Auto-save debug output
@@ -433,8 +435,10 @@ def main():
     df = pd.DataFrame(table_rows)
     st.dataframe(df, use_container_width=True, height=300)
 
-    # Detailed view for each symbol
-    st.subheader("📋 Detailed Analysis")
+    # ─────────────────────────────────────────────
+    # COMPLETE RAJ PRO TABLE (Matching Pine Script)
+    # ─────────────────────────────────────────────
+    st.subheader("📋 Detailed Analysis - Complete Table")
 
     tabs = st.tabs(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"])
 
@@ -442,37 +446,147 @@ def main():
         with tabs[idx]:
             if symbol_key in all_signals and all_signals[symbol_key]:
                 signal, spot, config, expiry = all_signals[symbol_key]
+                atm = int(config["gap"] * round(spot / config["gap"]))
 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Signal", f"{'🟢' if signal.color == 'green' else '🔴' if signal.color == 'red' else '🟡'} {signal.name}", f"{signal.confidence:.0%}")
-                with col2:
-                    st.metric("Dominance", f"{signal.dominance:+.4f}")
-                with col3:
-                    st.metric("Momentum", f"{signal.momentum:+.4f}")
-                with col4:
-                    st.metric("Volatility", f"{signal.volatility:.4f}")
+                try:
+                    # Create and display complete table
+                    table = RajProTable(
+                        signal=signal,
+                        spot=spot,
+                        config=config,
+                        expiry_date=expiry,
+                        atm_strike=atm,
+                        strike_gap=config["gap"],
+                    )
+                    table.display_streamlit_table()
 
-                st.markdown(f"""
-                **Market Data:**
-                - Spot: ₹{spot:,.2f}
-                - CE Erosion: {signal.call_erosion:+.4f}
-                - PE Erosion: {signal.put_erosion:+.4f}
-                - Gamma Score: {signal.gamma_score:.1f}
-                - Bull Bars: {signal.bull_bars} | Bear Bars: {signal.bear_bars}
-
-                **Signals:**
-                - Spike Signal: {signal.spike_signal}
-                - Institutional: {signal.inst_signal}
-                - Trend: {signal.trend}
-
-                **Confluence Scores:**
-                - CE Spike Score: {signal.ce_spike_score:.2f}
-                - PE Spike Score: {signal.pe_spike_score:.2f}
-                - Score Diff: {signal.score_diff:+.2f}
-                """)
+                except Exception as e:
+                    st.error(f"Error displaying table: {e}")
+                    # Fallback to simple metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Signal", f"{'🟢' if signal.color == 'green' else '🔴' if signal.color == 'red' else '🟡'} {signal.name}", f"{signal.confidence:.0%}")
+                    with col2:
+                        st.metric("Dominance", f"{signal.dominance:+.4f}")
+                    with col3:
+                        st.metric("Momentum", f"{signal.momentum:+.4f}")
+                    with col4:
+                        st.metric("Volatility", f"{signal.volatility:.4f}")
             else:
                 st.info(f"⏳ Loading data for {config['name']}...")
+
+    # ─────────────────────────────────────────────
+    # GAMMA ANALYSIS TABLE (Pine Script Delta/Gamma)
+    # ─────────────────────────────────────────────
+    st.subheader("📊 Gamma Analysis & Delta Table")
+
+    gamma_cols = st.columns(4)
+
+    for idx, symbol_key in enumerate(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]):
+        with gamma_cols[idx]:
+            if symbol_key in all_signals and all_signals[symbol_key]:
+                signal, spot, config, expiry = all_signals[symbol_key]
+
+                try:
+                    # Initialize gamma analyzer
+                    gamma = GammaAnalyzer(expiry)
+
+                    # Get CE and PE premiums
+                    ce1_prem = signal.premiums.get("ce1", 0)
+                    pe1_prem = signal.premiums.get("pe1", 0)
+
+                    # Calculate all deltas
+                    atm = int(config["gap"] * round(spot / config["gap"]))
+                    deltas = gamma.calculate_deltas(
+                        spot=spot,
+                        atm_strike=atm,
+                        strike_gap=config["gap"],
+                        ce_premium=ce1_prem,
+                        pe_premium=pe1_prem,
+                    )
+
+                    # Calculate gamma score
+                    g_score = gamma.gamma_score(
+                        deltas["ce_deltas"],
+                        deltas["pe_deltas"],
+                        signal.dominance
+                    )
+
+                    # Display metrics
+                    st.metric("Gamma Score", f"{g_score:.1f}", delta=f"IV: {deltas['sigma']*100:.1f}%")
+
+                    # Display delta table
+                    with st.expander(f"🔺 {symbol_key} Delta Analysis", expanded=False):
+                        delta_data = {
+                            "Strike": ["CE1", "CE2", "CE3", "CE4", "PE1", "PE2", "PE3", "PE4"],
+                            "Delta": [
+                                f"{deltas['ce_deltas'].get(1, 0):.3f}{deltas['ce_markers'].get(1, '')}",
+                                f"{deltas['ce_deltas'].get(2, 0):.3f}{deltas['ce_markers'].get(2, '')}",
+                                f"{deltas['ce_deltas'].get(3, 0):.3f}{deltas['ce_markers'].get(3, '')}",
+                                f"{deltas['ce_deltas'].get(4, 0):.3f}{deltas['ce_markers'].get(4, '')}",
+                                f"{deltas['pe_deltas'].get(1, 0):.3f}{deltas['pe_markers'].get(1, '')}",
+                                f"{deltas['pe_deltas'].get(2, 0):.3f}{deltas['pe_markers'].get(2, '')}",
+                                f"{deltas['pe_deltas'].get(3, 0):.3f}{deltas['pe_markers'].get(3, '')}",
+                                f"{deltas['pe_deltas'].get(4, 0):.3f}{deltas['pe_markers'].get(4, '')}",
+                            ],
+                        }
+
+                        delta_df = pd.DataFrame(delta_data)
+                        st.dataframe(delta_df, hide_index=True, use_container_width=True)
+
+                        st.caption(f"IV: {deltas['sigma']*100:.1f}% | T: {deltas['days_left']:.1f}d | 🔺G/🔻G = Max Gamma Zone (Δ 0.30-0.35)")
+
+                except Exception as e:
+                    st.warning(f"Could not calculate gamma: {e}")
+            else:
+                st.info(f"⏳ No data for {config['name']}")
+
+    # ─────────────────────────────────────────────
+    # DEBUG LOGS DISPLAY
+    # ─────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("🔍 Debug Logs & Data Structure")
+
+    with st.expander("📊 View Captured Logs", expanded=False):
+        # Read the current session log file
+        try:
+            if SESSION_LOG_FILE.exists():
+                with open(SESSION_LOG_FILE, 'r') as f:
+                    log_content = f.read()
+
+                # Split by sections
+                critical_idx = log_content.find('[CRITICAL]')
+                data_dump_idx = log_content.find('[DATA-DUMP]')
+
+                # Show CRITICAL section (Upstox data structure)
+                if critical_idx != -1:
+                    st.markdown("#### 🔍 [CRITICAL] Upstox API Response Structure")
+                    critical_end = log_content.find('\n================', critical_idx)
+                    if critical_end == -1:
+                        critical_end = len(log_content)
+                    critical_section = log_content[critical_idx:critical_end]
+                    st.code(critical_section, language="text")
+
+                # Show DATA-DUMP section
+                if data_dump_idx != -1:
+                    st.markdown("#### 📤 [DATA-DUMP] Received Data")
+                    data_end = log_content.find('\n================', data_dump_idx)
+                    if data_end == -1:
+                        data_end = len(log_content)
+                    data_section = log_content[data_dump_idx:data_end]
+                    st.code(data_section[:2000], language="text")
+
+                # Show all DEBUG lines
+                debug_lines = [line for line in log_content.split('\n') if '[DEBUG]' in line]
+                if debug_lines:
+                    st.markdown("#### 🐛 [DEBUG] Extraction Details")
+                    st.code('\n'.join(debug_lines[:50]), language="text")
+
+                st.success(f"✅ Log file: {SESSION_LOG_FILE}")
+            else:
+                st.warning("⏳ Logs not yet captured. Please refresh or wait for data load.")
+        except Exception as e:
+            st.error(f"Could not read logs: {e}")
 
     # Auto refresh
     time.sleep(180)
