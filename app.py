@@ -284,45 +284,6 @@ def main():
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
 
-        # ===== EXPIRY SELECTOR =====
-        st.markdown("### 📅 Expiry Selection")
-
-        col1, col2 = st.columns([3, 1])
-
-        with col1:
-            # Fetch expiry dates for NIFTY
-            expiry_dates = None
-            try:
-                access_token = st.session_state.get("access_token")
-                if not access_token:
-                    st.error("❌ Not authenticated. Please login first.")
-                    st.stop()
-
-                exp_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
-                if exp_dates:
-                    expiry_dates = exp_dates
-                    if "selected_expiry" not in st.session_state:
-                        st.session_state.selected_expiry = exp_dates[0]
-
-                    selected_expiry = st.selectbox(
-                        "📅 Select Expiry Date",
-                        options=expiry_dates,
-                        index=expiry_dates.index(st.session_state.selected_expiry) if st.session_state.selected_expiry in expiry_dates else 0,
-                        help="Choose the expiry date for options analysis"
-                    )
-                    st.session_state.selected_expiry = selected_expiry
-                    st.caption(f"✓ Selected: **{selected_expiry}**")
-                else:
-                    st.error("❌ No expiry dates available")
-            except Exception as e:
-                st.error(f"Could not fetch expiry dates: {str(e)}")
-
-        with col2:
-            # Refresh button to pull fresh expiry dates
-            if st.button("🔄 Refresh", use_container_width=True, help="Pull latest expiry dates from Upstox"):
-                st.session_state.refresh_expiry = True
-                st.rerun()
-
         # Debug toggle
         show_debug = st.checkbox("🐛 Show Debug Info", value=False)
 
@@ -345,23 +306,30 @@ def main():
     all_signals = {}
     debug_info = {}
 
-    # Use selected expiry from sidebar, or fetch if not set
-    selected_expiry = st.session_state.get("selected_expiry", None)
-
-    # If no expiry selected yet, fetch it
-    if not selected_expiry:
-        expiry_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
-        if expiry_dates:
-            selected_expiry = expiry_dates[0]
-            st.session_state.selected_expiry = selected_expiry
-            print(f"[DEBUG] Auto-selected expiry: {selected_expiry}")
-        else:
-            st.warning("⚠️ Could not fetch expiry dates. Check your API credentials.")
-            st.stop()
+    # Initialize per-instrument expiry storage in session state
+    if "instrument_expiries" not in st.session_state:
+        st.session_state.instrument_expiries = {}
 
     for symbol_key in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
         config = STRIKE_CONFIG[symbol_key]
-        selected = selected_expiry
+
+        # Fetch available expiry dates for this instrument
+        try:
+            expiry_dates, exp_err = fetch_expiry_dates(access_token, symbol_key)
+            if not expiry_dates:
+                print(f"[DEBUG] No expiry dates for {symbol_key}")
+                all_signals[symbol_key] = None
+                continue
+        except:
+            print(f"[DEBUG] Error fetching expiry dates for {symbol_key}")
+            all_signals[symbol_key] = None
+            continue
+
+        # Get or set default expiry for this instrument
+        if symbol_key not in st.session_state.instrument_expiries:
+            st.session_state.instrument_expiries[symbol_key] = expiry_dates[0]
+
+        selected = st.session_state.instrument_expiries[symbol_key]
 
         # Fetch chain
         data, chain_err, _ = fetch_chain(access_token, symbol_key, selected)
@@ -470,9 +438,33 @@ def main():
     # Display professional table (matching Pine Script indicator)
     st.subheader("📊 Raj Pro Options Analysis Table")
 
-    # Build table rows
+    # Build table rows with per-instrument expiry selectors
     table_rows = []
     for symbol_key in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        # Display expiry selector for this instrument
+        try:
+            expiry_dates, _ = fetch_expiry_dates(access_token, symbol_key)
+            if expiry_dates:
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.markdown(f"#### 📊 {STRIKE_CONFIG[symbol_key]['name']}")
+                    st.markdown(f"**📅 Expiry:**")
+
+                with col2:
+                    selected = st.selectbox(
+                        "Select expiry",
+                        options=expiry_dates,
+                        index=expiry_dates.index(st.session_state.instrument_expiries.get(symbol_key, expiry_dates[0])) if st.session_state.instrument_expiries.get(symbol_key) in expiry_dates else 0,
+                        key=f"expiry_{symbol_key}",
+                        label_visibility="collapsed"
+                    )
+                    if selected != st.session_state.instrument_expiries.get(symbol_key):
+                        st.session_state.instrument_expiries[symbol_key] = selected
+                        st.rerun()
+        except:
+            pass
+
         if symbol_key in all_signals and all_signals[symbol_key]:
             signal, spot, config, expiry = all_signals[symbol_key]
 
