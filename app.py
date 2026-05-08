@@ -188,6 +188,50 @@ def fetch_chain(token: str, symbol: str, expiry_date: str) -> tuple:
 
     return None, "Failed to fetch chain", UPSTOX_OC_URLS[-1]
 
+def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
+    """Fetch 1-minute historical candles for a symbol on a specific date
+    Used to get opening price when market is closed
+
+    Args:
+        token: API access token
+        symbol: NIFTY, BANKNIFTY, etc.
+        date_str: Date in YYYY-MM-DD format
+
+    Returns:
+        (candles_data, error_message)
+    """
+    try:
+        from datetime import datetime, timedelta
+
+        # Get instrument key for underlying (not options)
+        instrument_key = INSTRUMENT_KEY[symbol]
+
+        # Construct URL: /historical-candle/{instrument_key}/1minute/{to_date}/{from_date}
+        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/1minute/{date_str}/{date_str}"
+
+        print(f"[DEBUG] Fetching historical candles: {url}")
+
+        r = requests.get(
+            url,
+            headers=upstox_headers(token),
+            timeout=15,
+        )
+
+        if r.status_code == 401:
+            return None, "token_expired"
+
+        d = r.json()
+
+        if d.get("status") == "success" and d.get("data"):
+            candles = d["data"]
+            print(f"[DEBUG] Got {len(candles)} candles for {symbol} on {date_str}")
+            return candles, None
+
+        return None, f"Failed: {d}"
+    except Exception as e:
+        print(f"[ERROR] Historical candles fetch failed: {e}")
+        return None, str(e)
+
 # ─────────────────────────────────────────────
 # MAIN APP
 # ─────────────────────────────────────────────
@@ -353,27 +397,47 @@ def main():
                     break
 
             # Get TODAY'S opening price from 1-minute chart (matching Pine Script logic)
-            # This captures the opening price exactly when market opens at 09:15
+            # When market is CLOSED: Fetch historical candles to get today's opening
+            # When market is OPEN: Use first 1-minute candle at market open (09:15)
             opening_price = None
             try:
-                # Fetch 1-minute bars for underlying to get TODAY'S opening
-                # For NIFTY/BANKNIFTY/etc., the underlying symbol is the index itself
-                underlying_symbol = INSTRUMENT_KEY[symbol_key]
+                is_market_open = (
+                    now.weekday() < 5 and
+                    (9, 15) <= (now.hour, now.minute) <= (15, 30)
+                )
 
-                # Try to fetch 1-minute data to get opening price
-                # Note: This would require a separate API call or getting from chain data
-                # For now, use the underlying_open_price from chain data (better than nothing)
-                if data:
-                    opening_price = float(data[0].get("underlying_open_price") or 0)
-                    if opening_price <= 0:
-                        # If not available, mark for manual verification
-                        opening_price = spot
-                        print(f"[DEBUG] ⚠️ TODAY'S opening price not in API response, using current spot: {spot:.2f}")
-                        print(f"[DEBUG] Expected field: underlying_open_price (from 1-min chart at 09:15)")
+                if not is_market_open:
+                    # Market CLOSED: Fetch 1-minute candles for today
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    candles, candle_err = fetch_historical_candles(access_token, symbol_key, today_str)
+
+                    if candles and len(candles) > 0:
+                        # Get opening price from FIRST candle (market open at 09:15)
+                        first_candle = candles[0]
+                        opening_price = float(first_candle.get("open") or 0)
+                        if opening_price > 0:
+                            print(f"[DEBUG] ✓ TODAY'S opening price from 1-min candle: {opening_price:.2f}")
+                        else:
+                            opening_price = spot
+                            print(f"[DEBUG] ⚠️ Candle open not available, using spot: {spot:.2f}")
                     else:
-                        print(f"[DEBUG] ✓ TODAY'S opening price from API: {opening_price:.2f}")
+                        # Fallback to chain data
+                        opening_price = float(data[0].get("underlying_open_price") or 0) if data else 0
+                        if opening_price <= 0:
+                            opening_price = spot
+                            print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
+                else:
+                    # Market OPEN: Use underlying_open_price from chain (today's opening at 09:15)
+                    if data:
+                        opening_price = float(data[0].get("underlying_open_price") or 0)
+                        if opening_price <= 0:
+                            opening_price = spot
+                            print(f"[DEBUG] ⚠️ Opening price not available, using spot: {spot:.2f}")
+                        else:
+                            print(f"[DEBUG] ✓ TODAY'S opening price (market open): {opening_price:.2f}")
+
             except Exception as e:
-                print(f"[DEBUG] Error extracting opening price: {e}, using spot: {spot:.2f}")
+                print(f"[DEBUG] Error getting opening price: {e}")
                 opening_price = spot
 
             if not spot or spot <= 0:
