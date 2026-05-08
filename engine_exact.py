@@ -216,29 +216,46 @@ class RajProEngine:
 
         # ===== STEP 6: STORE DAY OPEN PREMIUMS (Pine Script: var logic) =====
         # Use opening premiums from session state if available (persistent across runs)
-        if opening_premiums:
-            # Load from session state (previous run's stored values)
-            self.ce1O = opening_premiums.get("ce1O") or (ce1N if self.ce1O is None else self.ce1O)
-            self.ce2O = opening_premiums.get("ce2O") or (ce2N if self.ce2O is None else self.ce2O)
-            self.ce3O = opening_premiums.get("ce3O") or (ce3N if self.ce3O is None else self.ce3O)
-            self.ce4O = opening_premiums.get("ce4O") or (ce4N if self.ce4O is None else self.ce4O)
-            self.pe1O = opening_premiums.get("pe1O") or (pe1N if self.pe1O is None else self.pe1O)
-            self.pe2O = opening_premiums.get("pe2O") or (pe2N if self.pe2O is None else self.pe2O)
-            self.pe3O = opening_premiums.get("pe3O") or (pe3N if self.pe3O is None else self.pe3O)
-            self.pe4O = opening_premiums.get("pe4O") or (pe4N if self.pe4O is None else self.pe4O)
-            print(f"[DEBUG] Loaded opening premiums from session state")
+        if nDay:
+            # Day changed - use current market premiums as opening baseline
+            self.ce1O = ce1N
+            self.ce2O = ce2N
+            self.ce3O = ce3N
+            self.ce4O = ce4N
+            self.pe1O = pe1N
+            self.pe2O = pe2N
+            self.pe3O = pe3N
+            self.pe4O = pe4N
+            print(f"[DEBUG] NEW DAY - Set opening premiums from market: CE1={ce1N:.2f}, PE1={pe1N:.2f}")
+        elif opening_premiums and opening_premiums.get("ce1O") is not None:
+            # Same day - load persisted opening premiums from session state
+            try:
+                self.ce1O = float(opening_premiums.get("ce1O")) if opening_premiums.get("ce1O") else ce1N
+                self.ce2O = float(opening_premiums.get("ce2O")) if opening_premiums.get("ce2O") else ce2N
+                self.ce3O = float(opening_premiums.get("ce3O")) if opening_premiums.get("ce3O") else ce3N
+                self.ce4O = float(opening_premiums.get("ce4O")) if opening_premiums.get("ce4O") else ce4N
+                self.pe1O = float(opening_premiums.get("pe1O")) if opening_premiums.get("pe1O") else pe1N
+                self.pe2O = float(opening_premiums.get("pe2O")) if opening_premiums.get("pe2O") else pe2N
+                self.pe3O = float(opening_premiums.get("pe3O")) if opening_premiums.get("pe3O") else pe3N
+                self.pe4O = float(opening_premiums.get("pe4O")) if opening_premiums.get("pe4O") else pe4N
+                print(f"[DEBUG] SAME DAY - Loaded persisted opening premiums: CE1={self.ce1O:.2f}, CE2={self.ce2O:.2f}, PE1={self.pe1O:.2f}, PE2={self.pe2O:.2f}")
+            except (ValueError, TypeError) as e:
+                print(f"[ERROR] Failed to load opening premiums: {e}. Using current market as baseline.")
+                self.ce1O, self.ce2O, self.ce3O, self.ce4O = ce1N, ce2N, ce3N, ce4N
+                self.pe1O, self.pe2O, self.pe3O, self.pe4O = pe1N, pe2N, pe3N, pe4N
         else:
-            # New day or first run - initialize from current premiums
-            self.ce1O = ce1N if nDay or self.ce1O is None else self.ce1O
-            self.ce2O = ce2N if nDay or self.ce2O is None else self.ce2O
-            self.ce3O = ce3N if nDay or self.ce3O is None else self.ce3O
-            self.ce4O = ce4N if nDay or self.ce4O is None else self.ce4O
-            self.pe1O = pe1N if nDay or self.pe1O is None else self.pe1O
-            self.pe2O = pe2N if nDay or self.pe2O is None else self.pe2O
-            self.pe3O = pe3N if nDay or self.pe3O is None else self.pe3O
-            self.pe4O = pe4N if nDay or self.pe4O is None else self.pe4O
+            # First run ever (or corrupted state) - initialize from current
+            self.ce1O = ce1N if self.ce1O is None else self.ce1O
+            self.ce2O = ce2N if self.ce2O is None else self.ce2O
+            self.ce3O = ce3N if self.ce3O is None else self.ce3O
+            self.ce4O = ce4N if self.ce4O is None else self.ce4O
+            self.pe1O = pe1N if self.pe1O is None else self.pe1O
+            self.pe2O = pe2N if self.pe2O is None else self.pe2O
+            self.pe3O = pe3N if self.pe3O is None else self.pe3O
+            self.pe4O = pe4N if self.pe4O is None else self.pe4O
+            print(f"[DEBUG] FIRST RUN - Initialize opening premiums: CE1={self.ce1O:.2f}, PE1={self.pe1O:.2f}")
 
-        print(f"[DEBUG] Opening premiums: CE={self.ce1O:.2f}, PE={self.pe1O:.2f}")
+        print(f"[DEBUG] Final opening premiums: CE1={self.ce1O:.2f}, CE2={self.ce2O:.2f}, PE1={self.pe1O:.2f}, PE2={self.pe2O:.2f}")
 
         # ===== STEP 7: CALCULATE EROSION (Pine Script exact formula) =====
         # erosion = (opening - current) / opening
@@ -254,6 +271,17 @@ class RajProEngine:
         print(f"[DEBUG] Erosion calculation:")
         print(f"[DEBUG] CE1: ({self.ce1O:.2f} - {ce1N:.2f}) / {self.ce1O:.2f} = {ce1E:.4f}")
         print(f"[DEBUG] PE1: ({self.pe1O:.2f} - {pe1N:.2f}) / {self.pe1O:.2f} = {pe1E:.4f}")
+        print(f"[DEBUG] CE2: ({self.ce2O:.2f} - {ce2N:.2f}) / {self.ce2O:.2f} = {ce2E:.4f}")
+        print(f"[DEBUG] PE2: ({self.pe2O:.2f} - {pe2N:.2f}) / {self.pe2O:.2f} = {pe2E:.4f}")
+
+        # WARNING: If premiums haven't changed, erosion will be 0
+        unchanged = (ce1N == self.ce1O and ce2N == self.ce2O and pe1N == self.pe1O and pe2N == self.pe2O)
+        if unchanged:
+            print(f"[⚠️ CRITICAL] All premiums unchanged from opening!")
+            print(f"[⚠️ CRITICAL] Current == Opening for ALL strikes")
+            print(f"[⚠️ CRITICAL] This suggests API is returning stale/yesterday's prices")
+        else:
+            print(f"[✓ GOOD] Premiums have changed - erosion calculation valid")
 
         # ===== STEP 8: AVERAGE EROSIONS =====
         cE = (ce1E + ce2E + ce3E + ce4E) / 4
@@ -402,7 +430,7 @@ class RajProEngine:
         )
 
     def _get_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
-        """Extract premium from chain - LTP with close_price/bid-ask fallbacks"""
+        """Extract premium from chain - LTP with fallbacks"""
         if strike not in chain_dict:
             return 0.0
 
@@ -410,11 +438,11 @@ class RajProEngine:
         opt_data = row.get("call_options" if opt_type == "call" else "put_options") or {}
         market_data = opt_data.get("market_data") or {}
 
-        # Tier 1: Try LTP
+        # Tier 1: Try LTP (live price)
         ltp = float(market_data.get("ltp") or 0)
         source = "ltp"
 
-        # Tier 2: Fallback to close_price
+        # Tier 2: Fallback to close_price (end of day price)
         if ltp <= 0:
             ltp = float(market_data.get("close_price") or 0)
             source = "close_price"
@@ -429,6 +457,26 @@ class RajProEngine:
 
         print(f"[DEBUG] Strike {strike} ({opt_type}): LTP = {ltp:.2f} (from {source})")
         return ltp
+
+    def _get_opening_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
+        """Get yesterday's opening price (for erosion when market is closed)"""
+        if strike not in chain_dict:
+            return 0.0
+
+        row = chain_dict[strike]
+        opt_data = row.get("call_options" if opt_type == "call" else "put_options") or {}
+        market_data = opt_data.get("market_data") or {}
+
+        # For closed market: Use yesterday's open as baseline
+        # Try open_price field if available
+        open_price = float(market_data.get("open_price") or 0)
+
+        # If no open_price, estimate from close_price (assume minimal gap)
+        if open_price <= 0:
+            open_price = float(market_data.get("close_price") or 0)
+
+        print(f"[DEBUG] Strike {strike} ({opt_type}): Opening price = {open_price:.2f}")
+        return open_price
 
     def _build_spike_signal(self, rss_bull, rss_bear, otm_bull, otm_bear, spikes_bull, spikes_bear, strong_move) -> str:
         """Build spike signal matching Pine Script"""

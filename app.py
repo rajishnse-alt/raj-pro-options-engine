@@ -409,8 +409,9 @@ def main():
 
             # Pass opening premiums from session state
             opening_prems = st.session_state.opening_premiums.get(symbol_key, {})
-            print(f"\n[DEBUG] {symbol_key} - Opening premiums from session state:")
-            print(f"[DEBUG] ce1O={opening_prems.get('ce1O')}, pe1O={opening_prems.get('pe1O')}, date={opening_prems.get('date')}")
+            print(f"\n[DEBUG] {symbol_key} - Loading opening premiums from session state:")
+            print(f"[DEBUG] ce1O={opening_prems.get('ce1O')}, ce2O={opening_prems.get('ce2O')}, pe1O={opening_prems.get('pe1O')}, pe2O={opening_prems.get('pe2O')}, date={opening_prems.get('date')}")
+            print(f"[DEBUG] Today's date: {str(datetime.now().date())}")
 
             signal = engine.process(
                 chain_data=data,
@@ -424,19 +425,26 @@ def main():
 
             # Update opening premiums in session state (for next run)
             st.session_state.opening_premiums[symbol_key] = {
-                "ce1O": engine.ce1O,
-                "ce2O": engine.ce2O,
-                "ce3O": engine.ce3O,
-                "ce4O": engine.ce4O,
-                "pe1O": engine.pe1O,
-                "pe2O": engine.pe2O,
-                "pe3O": engine.pe3O,
-                "pe4O": engine.pe4O,
+                "ce1O": float(engine.ce1O) if engine.ce1O else None,
+                "ce2O": float(engine.ce2O) if engine.ce2O else None,
+                "ce3O": float(engine.ce3O) if engine.ce3O else None,
+                "ce4O": float(engine.ce4O) if engine.ce4O else None,
+                "pe1O": float(engine.pe1O) if engine.pe1O else None,
+                "pe2O": float(engine.pe2O) if engine.pe2O else None,
+                "pe3O": float(engine.pe3O) if engine.pe3O else None,
+                "pe4O": float(engine.pe4O) if engine.pe4O else None,
                 "date": str(datetime.now().date()),
             }
+            print(f"[DEBUG] {symbol_key} - Updated session state with opening premiums:")
+            print(f"[DEBUG] Stored: ce1O={st.session_state.opening_premiums[symbol_key]['ce1O']}, pe1O={st.session_state.opening_premiums[symbol_key]['pe1O']}, date={st.session_state.opening_premiums[symbol_key]['date']}")
 
             all_signals[symbol_key] = (signal, spot, config, selected)
-            print(f"[DEBUG] {symbol_key} processed successfully: Dom={signal.dominance:.4f}, Mom={signal.momentum:.4f}")
+            print(f"[DEBUG] {symbol_key} processed successfully:")
+            print(f"[DEBUG]   Dominance: {signal.dominance:+.4f}")
+            print(f"[DEBUG]   Momentum: {signal.momentum:+.4f}")
+            print(f"[DEBUG]   CE Erosion: {signal.call_erosion:+.4f}")
+            print(f"[DEBUG]   PE Erosion: {signal.put_erosion:+.4f}")
+            print(f"[DEBUG]   Volatility: {signal.volatility:.4f}")
         except Exception as e:
             print(f"[ERROR] Engine failed for {symbol_key}: {str(e)}")
             import traceback
