@@ -322,18 +322,7 @@ def main():
         # Log status
         st.markdown("---")
         st.markdown("### 📝 Debug Logs")
-        st.caption(f"Auto-saving to: `logs/upstox_data_dump_{session_timestamp}.log`")
-        st.info("""
-        **View logs in GitHub:**
-        1. Go to repo logs/ folder
-        2. Open latest file
-        3. Search for `[CRITICAL]` or `[DATA-DUMP]`
-
-        **Or run locally:**
-        ```bash
-        python log_viewer.py latest
-        ```
-        """)
+        st.info("Debug logs captured in real-time below")
 
     # Fetch data for all symbols
     access_token = st.session_state["access_token"]
