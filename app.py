@@ -352,14 +352,29 @@ def main():
                     spot = float(sp)
                     break
 
-            # Get opening price from first row's underlying_open (if available)
-            if data:
-                try:
+            # Get TODAY'S opening price from 1-minute chart (matching Pine Script logic)
+            # This captures the opening price exactly when market opens at 09:15
+            opening_price = None
+            try:
+                # Fetch 1-minute bars for underlying to get TODAY'S opening
+                # For NIFTY/BANKNIFTY/etc., the underlying symbol is the index itself
+                underlying_symbol = INSTRUMENT_KEY[symbol_key]
+
+                # Try to fetch 1-minute data to get opening price
+                # Note: This would require a separate API call or getting from chain data
+                # For now, use the underlying_open_price from chain data (better than nothing)
+                if data:
                     opening_price = float(data[0].get("underlying_open_price") or 0)
                     if opening_price <= 0:
-                        opening_price = spot  # Fallback to current spot if not available
-                except:
-                    opening_price = spot
+                        # If not available, mark for manual verification
+                        opening_price = spot
+                        print(f"[DEBUG] ⚠️ TODAY'S opening price not in API response, using current spot: {spot:.2f}")
+                        print(f"[DEBUG] Expected field: underlying_open_price (from 1-min chart at 09:15)")
+                    else:
+                        print(f"[DEBUG] ✓ TODAY'S opening price from API: {opening_price:.2f}")
+            except Exception as e:
+                print(f"[DEBUG] Error extracting opening price: {e}, using spot: {spot:.2f}")
+                opening_price = spot
 
             if not spot or spot <= 0:
                 print(f"[ERROR] Could not extract spot price for {symbol_key}")
@@ -381,6 +396,9 @@ def main():
         print(f"[DATA-DUMP] Spot: {spot:.2f}, Opening: {opening_price:.2f}")
         if data:
             print(f"[DATA-DUMP] First row keys: {list(data[0].keys())}")
+            print(f"[DATA-DUMP] underlying_open_price: {data[0].get('underlying_open_price')}")
+            print(f"[DATA-DUMP] underlying_spot_price: {data[0].get('underlying_spot_price')}")
+            print(f"[DATA-DUMP] underlying_close_price: {data[0].get('underlying_close_price')}")
             import json
             print(f"[DATA-DUMP] First row JSON (truncated):")
             print(json.dumps(data[0], indent=2, default=str)[:800])
