@@ -333,17 +333,22 @@ def main():
     all_signals = {}
     debug_info = {}
 
-    # Use selected expiry from sidebar
+    # Use selected expiry from sidebar, or fetch if not set
     selected_expiry = st.session_state.get("selected_expiry", None)
+
+    # If no expiry selected yet, fetch it
+    if not selected_expiry:
+        expiry_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
+        if expiry_dates:
+            selected_expiry = expiry_dates[0]
+            st.session_state.selected_expiry = selected_expiry
+            print(f"[DEBUG] Auto-selected expiry: {selected_expiry}")
+        else:
+            st.warning("⚠️ Could not fetch expiry dates. Check your API credentials.")
+            st.stop()
 
     for symbol_key in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
         config = STRIKE_CONFIG[symbol_key]
-
-        # Use selected expiry for all symbols
-        if not selected_expiry:
-            all_signals[symbol_key] = None
-            continue
-
         selected = selected_expiry
 
         # Fetch chain
@@ -360,22 +365,33 @@ def main():
         spot = None
         opening_price = None
 
-        for row in data:
-            sp = row.get("underlying_spot_price")
-            if sp:
-                spot = float(sp)
-                break
+        try:
+            for row in data:
+                sp = row.get("underlying_spot_price")
+                if sp:
+                    spot = float(sp)
+                    break
 
-        # Get opening price from first row's underlying_open (if available)
-        if data:
-            try:
-                opening_price = float(data[0].get("underlying_open_price") or 0)
-                if opening_price <= 0:
-                    opening_price = spot  # Fallback to current spot if not available
-            except:
-                opening_price = spot
+            # Get opening price from first row's underlying_open (if available)
+            if data:
+                try:
+                    opening_price = float(data[0].get("underlying_open_price") or 0)
+                    if opening_price <= 0:
+                        opening_price = spot  # Fallback to current spot if not available
+                except:
+                    opening_price = spot
 
-        if not spot:
+            if not spot or spot <= 0:
+                print(f"[ERROR] Could not extract spot price for {symbol_key}")
+                all_signals[symbol_key] = None
+                continue
+
+            if not opening_price or opening_price <= 0:
+                opening_price = spot  # Fallback to spot if opening not available
+                print(f"[DEBUG] Opening price not available, using spot: {spot:.2f}")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to extract prices for {symbol_key}: {e}")
             all_signals[symbol_key] = None
             continue
 
@@ -392,17 +408,23 @@ def main():
         # ===== END DEBUG =====
 
         # Process through complete engine
-        engine = st.session_state.engines[symbol_key]
-        signal = engine.process(
-            chain_data=data,
-            underlying_price=spot,
-            opening_price=opening_price,  # NEW: pass opening price
-            strike_gap=config["gap"],
-            symbol=symbol_key,
-            expiry_date=selected,
-        )
-
-        all_signals[symbol_key] = (signal, spot, config, selected)
+        try:
+            engine = st.session_state.engines[symbol_key]
+            signal = engine.process(
+                chain_data=data,
+                underlying_price=spot,
+                opening_price=opening_price,  # NEW: pass opening price
+                strike_gap=config["gap"],
+                symbol=symbol_key,
+                expiry_date=selected,
+            )
+            all_signals[symbol_key] = (signal, spot, config, selected)
+            print(f"[DEBUG] {symbol_key} processed successfully: Dom={signal.dominance:.4f}, Mom={signal.momentum:.4f}")
+        except Exception as e:
+            print(f"[ERROR] Engine failed for {symbol_key}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            all_signals[symbol_key] = None
 
     # Display professional table (matching Pine Script indicator)
     st.subheader("📊 Raj Pro Options Analysis Table")
