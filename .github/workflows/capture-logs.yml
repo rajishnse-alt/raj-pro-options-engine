@@ -1,0 +1,61 @@
+name: Capture and Commit Debug Logs
+
+on:
+  # Run on schedule (every 5 minutes during trading hours)
+  schedule:
+    - cron: '*/5 9-16 * * 1-5'  # Weekdays 9am-4pm IST (adjust as needed)
+
+  # Also run manually
+  workflow_dispatch:
+
+jobs:
+  capture-logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Create logs directory
+        run: mkdir -p logs
+
+      - name: Fetch Streamlit Cloud logs
+        env:
+          STREAMLIT_EMAIL: ${{ secrets.STREAMLIT_EMAIL }}
+          STREAMLIT_PASSWORD: ${{ secrets.STREAMLIT_PASSWORD }}
+          APP_NAME: 'raj-pro-options-engine-8'
+        run: |
+          # Install streamlit CLI
+          pip install streamlit --quiet
+
+          # Note: Streamlit Cloud doesn't expose a public log API yet
+          # This is a placeholder for when they do
+          # For now, we'll commit a marker file showing workflow ran
+
+          echo "Workflow ran at $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> logs/workflow_status.txt
+
+      - name: Check for new logs
+        run: |
+          # Look for any new log files created
+          find logs -type f -newer logs/workflow_status.txt 2>/dev/null || echo "No new logs found"
+
+      - name: Commit and push logs
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Only commit if there are changes
+          if ! git diff --quiet; then
+            git add logs/
+            git commit -m "Auto-capture: debug logs from Streamlit app [$(date -u +'%Y-%m-%d %H:%M:%S')]"
+            git push
+          else
+            echo "No new logs to commit"
+          fi
