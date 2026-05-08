@@ -245,6 +245,10 @@ class RajProEngine:
         pe3E = (self.pe3O - pe3N) / self.pe3O if (self.pe3O and self.pe3O != 0) else 0.0
         pe4E = (self.pe4O - pe4N) / self.pe4O if (self.pe4O and self.pe4O != 0) else 0.0
 
+        print(f"[DEBUG] Erosion calculation:")
+        print(f"[DEBUG] CE1: ({self.ce1O:.2f} - {ce1N:.2f}) / {self.ce1O:.2f} = {ce1E:.4f}")
+        print(f"[DEBUG] PE1: ({self.pe1O:.2f} - {pe1N:.2f}) / {self.pe1O:.2f} = {pe1E:.4f}")
+
         # ===== STEP 8: AVERAGE EROSIONS =====
         cE = (ce1E + ce2E + ce3E + ce4E) / 4
         pE = (pe1E + pe2E + pe3E + pe4E) / 4

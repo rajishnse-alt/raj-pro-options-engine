@@ -426,6 +426,8 @@ def main():
 
             # Pass opening premiums from session state
             opening_prems = st.session_state.opening_premiums.get(symbol_key, {})
+            print(f"\n[DEBUG] {symbol_key} - Opening premiums from session state:")
+            print(f"[DEBUG] ce1O={opening_prems.get('ce1O')}, pe1O={opening_prems.get('pe1O')}, date={opening_prems.get('date')}")
 
             signal = engine.process(
                 chain_data=data,
