@@ -399,7 +399,7 @@ def main():
             # Get TODAY'S opening price from 1-minute chart (matching Pine Script logic)
             # When market is CLOSED: Fetch historical candles to get today's opening
             # When market is OPEN: Use first 1-minute candle at market open (09:15)
-            opening_price = None
+            opening_price = spot  # Default fallback
             try:
                 is_market_open = (
                     now.weekday() < 5 and
@@ -414,18 +414,26 @@ def main():
                     if candles and len(candles) > 0:
                         # Get opening price from FIRST candle (market open at 09:15)
                         first_candle = candles[0]
-                        opening_price = float(first_candle.get("open") or 0)
+
+                        # Handle different candle data formats
+                        # Format 1: Dict with keys
+                        if isinstance(first_candle, dict):
+                            opening_price = float(first_candle.get("open") or 0)
+                        # Format 2: Array [timestamp, open, high, low, close, volume, oi]
+                        elif isinstance(first_candle, (list, tuple)) and len(first_candle) > 1:
+                            opening_price = float(first_candle[1])  # Index 1 is open
+                        else:
+                            opening_price = spot
+
                         if opening_price > 0:
                             print(f"[DEBUG] ✓ TODAY'S opening price from 1-min candle: {opening_price:.2f}")
+                            print(f"[DEBUG] Candle structure: {type(first_candle)} = {first_candle}")
                         else:
                             opening_price = spot
                             print(f"[DEBUG] ⚠️ Candle open not available, using spot: {spot:.2f}")
                     else:
-                        # Fallback to chain data
-                        opening_price = float(data[0].get("underlying_open_price") or 0) if data else 0
-                        if opening_price <= 0:
-                            opening_price = spot
-                            print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
+                        opening_price = spot
+                        print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
                 else:
                     # Market OPEN: Use underlying_open_price from chain (today's opening at 09:15)
                     if data:
@@ -437,7 +445,9 @@ def main():
                             print(f"[DEBUG] ✓ TODAY'S opening price (market open): {opening_price:.2f}")
 
             except Exception as e:
-                print(f"[DEBUG] Error getting opening price: {e}")
+                print(f"[ERROR] Error getting opening price: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 opening_price = spot
 
             if not spot or spot <= 0:
