@@ -293,6 +293,11 @@ def main():
             # Fetch expiry dates for NIFTY
             expiry_dates = None
             try:
+                access_token = st.session_state.get("access_token")
+                if not access_token:
+                    st.error("❌ Not authenticated. Please login first.")
+                    st.stop()
+
                 exp_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
                 if exp_dates:
                     expiry_dates = exp_dates
