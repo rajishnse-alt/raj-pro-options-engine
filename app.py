@@ -18,35 +18,29 @@ from gamma_analysis import GammaAnalyzer
 from complete_table import RajProTable
 
 # ─────────────────────────────────────────────
-# LOG CAPTURE SETUP - Auto-save debug output
+# LOG CAPTURE SETUP - Store logs in session state
 # ─────────────────────────────────────────────
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True)
-
-# Create a log file for this session
-session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-SESSION_LOG_FILE = LOG_DIR / f"upstox_data_dump_{session_timestamp}.log"
-
-class DualWriter:
-    """Write to both console and file"""
-    def __init__(self, file_path):
-        self.file = open(file_path, 'w')
-        self.console = sys.stdout
+class SessionStateLogger:
+    """Capture logs to session state for display"""
+    def __init__(self):
+        self.console = sys.__stdout__  # Original stdout
 
     def write(self, message):
-        self.console.write(message)
-        self.file.write(message)
-        self.file.flush()
+        self.console.write(message)  # Print to console
+        if hasattr(st, 'session_state'):
+            if 'debug_logs' not in st.session_state:
+                st.session_state.debug_logs = []
+            st.session_state.debug_logs.append(message)
 
     def flush(self):
         self.console.flush()
-        self.file.flush()
 
-    def close(self):
-        self.file.close()
+# Initialize session state logs
+if 'debug_logs' not in st.session_state:
+    st.session_state.debug_logs = []
 
 # Start capturing output
-sys.stdout = DualWriter(SESSION_LOG_FILE)
+sys.stdout = SessionStateLogger()
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -628,55 +622,44 @@ def main():
                 st.info(f"⏳ No data for {config['name']}")
 
     # ─────────────────────────────────────────────
-    # DEBUG LOGS DISPLAY
+    # DEBUG LOGS DISPLAY (from session state)
     # ─────────────────────────────────────────────
     st.markdown("---")
     st.subheader("🔍 Debug Logs & Data Structure")
 
     with st.expander("📊 View Captured Logs", expanded=False):
-        # Read the current session log file
-        try:
-            if SESSION_LOG_FILE.exists():
-                with open(SESSION_LOG_FILE, 'r') as f:
-                    log_content = f.read()
+        if 'debug_logs' in st.session_state and st.session_state.debug_logs:
+            log_content = ''.join(st.session_state.debug_logs)
 
-                # Split by sections
-                critical_idx = log_content.find('[CRITICAL]')
-                data_dump_idx = log_content.find('[DATA-DUMP]')
+            # Split by sections
+            critical_idx = log_content.find('[CRITICAL]')
+            data_dump_idx = log_content.find('[DATA-DUMP]')
+            debug_idx = log_content.find('[DEBUG]')
 
-                # Show CRITICAL section (Upstox data structure)
-                if critical_idx != -1:
-                    st.markdown("#### 🔍 [CRITICAL] Upstox API Response Structure")
-                    critical_end = log_content.find('\n================', critical_idx)
-                    if critical_end == -1:
-                        critical_end = len(log_content)
-                    critical_section = log_content[critical_idx:critical_end]
-                    st.code(critical_section, language="text")
+            # Show DATA-DUMP section (Upstox structure)
+            if data_dump_idx != -1:
+                st.markdown("#### 📤 [DATA-DUMP] Received Data")
+                data_end = log_content.find('\n[', data_dump_idx + 1)
+                if data_end == -1:
+                    data_end = len(log_content)
+                data_section = log_content[data_dump_idx:data_end]
+                st.code(data_section[:2000], language="text")
 
-                # Show DATA-DUMP section
-                if data_dump_idx != -1:
-                    st.markdown("#### 📤 [DATA-DUMP] Received Data")
-                    data_end = log_content.find('\n================', data_dump_idx)
-                    if data_end == -1:
-                        data_end = len(log_content)
-                    data_section = log_content[data_dump_idx:data_end]
-                    st.code(data_section[:2000], language="text")
-
-                # Show all DEBUG lines
+            # Show all DEBUG lines (extraction details)
+            if debug_idx != -1:
+                st.markdown("#### 🐛 [DEBUG] Extraction & Calculation Details")
                 debug_lines = [line for line in log_content.split('\n') if '[DEBUG]' in line]
                 if debug_lines:
-                    st.markdown("#### 🐛 [DEBUG] Extraction Details")
-                    st.code('\n'.join(debug_lines[:50]), language="text")
+                    st.code('\n'.join(debug_lines), language="text")
 
-                st.success(f"✅ Log file: {SESSION_LOG_FILE}")
-            else:
-                st.warning("⏳ Logs not yet captured. Please refresh or wait for data load.")
-        except Exception as e:
-            st.error(f"Could not read logs: {e}")
+            st.success(f"✅ Total log lines: {len(st.session_state.debug_logs)}")
+        else:
+            st.warning("⏳ Logs not yet captured. API data being fetched...")
 
-    # Auto refresh
-    time.sleep(180)
-    st.rerun()
+    # Manual refresh button
+    st.markdown("---")
+    if st.button("🔄 Refresh Data (Manual)", use_container_width=True):
+        st.rerun()
 
 
 if __name__ == "__main__":
