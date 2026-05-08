@@ -277,6 +277,29 @@ def main():
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
 
+        # ===== EXPIRY SELECTOR =====
+        st.markdown("### 📅 Expiry Selection")
+
+        # Fetch expiry dates for first symbol (NIFTY)
+        expiry_dates = None
+        try:
+            from datetime import datetime as dt
+            exp_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
+            if exp_dates:
+                expiry_dates = exp_dates
+                if "selected_expiry" not in st.session_state:
+                    st.session_state.selected_expiry = exp_dates[0]
+
+                selected_expiry = st.selectbox(
+                    "Select Expiry Date",
+                    options=expiry_dates,
+                    index=expiry_dates.index(st.session_state.selected_expiry) if st.session_state.selected_expiry in expiry_dates else 0
+                )
+                st.session_state.selected_expiry = selected_expiry
+                st.caption(f"Selected: **{selected_expiry}**")
+        except:
+            st.warning("Could not fetch expiry dates")
+
         # Debug toggle
         show_debug = st.checkbox("🐛 Show Debug Info", value=False)
 
@@ -310,24 +333,18 @@ def main():
     all_signals = {}
     debug_info = {}
 
+    # Use selected expiry from sidebar
+    selected_expiry = st.session_state.get("selected_expiry", None)
+
     for symbol_key in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
         config = STRIKE_CONFIG[symbol_key]
 
-        # Fetch expiry
-        expiry_dates, exp_err = fetch_expiry_dates(access_token, symbol_key)
-        if exp_err == "token_expired":
-            del st.session_state["access_token"]
-            st.rerun()
-
-        if exp_err or not expiry_dates:
+        # Use selected expiry for all symbols
+        if not selected_expiry:
             all_signals[symbol_key] = None
             continue
 
-        # Store/get selected expiry
-        if f"exp_{symbol_key}" not in st.session_state:
-            st.session_state[f"exp_{symbol_key}"] = expiry_dates[0]
-
-        selected = st.session_state[f"exp_{symbol_key}"]
+        selected = selected_expiry
 
         # Fetch chain
         data, chain_err, _ = fetch_chain(access_token, symbol_key, selected)
@@ -339,13 +356,24 @@ def main():
             all_signals[symbol_key] = None
             continue
 
-        # Extract spot price
+        # Extract spot price and opening prices
         spot = None
+        opening_price = None
+
         for row in data:
             sp = row.get("underlying_spot_price")
             if sp:
                 spot = float(sp)
                 break
+
+        # Get opening price from first row's underlying_open (if available)
+        if data:
+            try:
+                opening_price = float(data[0].get("underlying_open_price") or 0)
+                if opening_price <= 0:
+                    opening_price = spot  # Fallback to current spot if not available
+            except:
+                opening_price = spot
 
         if not spot:
             all_signals[symbol_key] = None
@@ -354,6 +382,7 @@ def main():
         # ===== DEBUG: Print Upstox data structure =====
         print(f"\n{'='*80}")
         print(f"[DATA-DUMP] {symbol_key} - Received {len(data)} rows from Upstox")
+        print(f"[DATA-DUMP] Spot: {spot:.2f}, Opening: {opening_price:.2f}")
         if data:
             print(f"[DATA-DUMP] First row keys: {list(data[0].keys())}")
             import json
@@ -367,6 +396,7 @@ def main():
         signal = engine.process(
             chain_data=data,
             underlying_price=spot,
+            opening_price=opening_price,  # NEW: pass opening price
             strike_gap=config["gap"],
             symbol=symbol_key,
             expiry_date=selected,
