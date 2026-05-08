@@ -1,0 +1,2 @@
+# Placeholder to ensure logs directory is tracked by git
+# Debug logs from the Streamlit app will be saved here automatically
