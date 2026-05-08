@@ -196,28 +196,42 @@ class RajProEngine:
             except (ValueError, TypeError):
                 continue
 
-        # Get current LTP premiums
-        ce1N = self._get_premium(chain_dict, ce_strikes[0], "call")
-        ce2N = self._get_premium(chain_dict, ce_strikes[1], "call")
-        ce3N = self._get_premium(chain_dict, ce_strikes[2], "call")
-        ce4N = self._get_premium(chain_dict, ce_strikes[3], "call")
-        pe1N = self._get_premium(chain_dict, pe_strikes[0], "put")
-        pe2N = self._get_premium(chain_dict, pe_strikes[1], "put")
-        pe3N = self._get_premium(chain_dict, pe_strikes[2], "put")
-        pe4N = self._get_premium(chain_dict, pe_strikes[3], "put")
+        # Get premiums based on market status
+        if self.market_is_open:
+            # Market OPEN: Use live LTP
+            ce1N = self._get_premium(chain_dict, ce_strikes[0], "call")
+            ce2N = self._get_premium(chain_dict, ce_strikes[1], "call")
+            ce3N = self._get_premium(chain_dict, ce_strikes[2], "call")
+            ce4N = self._get_premium(chain_dict, ce_strikes[3], "call")
+            pe1N = self._get_premium(chain_dict, pe_strikes[0], "put")
+            pe2N = self._get_premium(chain_dict, pe_strikes[1], "put")
+            pe3N = self._get_premium(chain_dict, pe_strikes[2], "put")
+            pe4N = self._get_premium(chain_dict, pe_strikes[3], "put")
 
-        # Get opening LTP (use day's first candle open for LIVE data)
-        ce1O_api = ce1N if self.market_is_open else 0.0
-        ce2O_api = ce2N if self.market_is_open else 0.0
-        ce3O_api = ce3N if self.market_is_open else 0.0
-        ce4O_api = ce4N if self.market_is_open else 0.0
-        pe1O_api = pe1N if self.market_is_open else 0.0
-        pe2O_api = pe2N if self.market_is_open else 0.0
-        pe3O_api = pe3N if self.market_is_open else 0.0
-        pe4O_api = pe4N if self.market_is_open else 0.0
+            ce1O_api = ce1N
+            ce2O_api = ce2N
+            ce3O_api = ce3N
+            ce4O_api = ce4N
+            pe1O_api = pe1N
+            pe2O_api = pe2N
+            pe3O_api = pe3N
+            pe4O_api = pe4N
 
-        print(f"[DEBUG] CE Premium LTP: Current={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
-        print(f"[DEBUG] PE Premium LTP: Current={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
+            print(f"[DEBUG] CE Premium LTP (MARKET OPEN): Current={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
+            print(f"[DEBUG] PE Premium LTP (MARKET OPEN): Current={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
+        else:
+            # Market CLOSED: Use OHLC (yesterday's open to close)
+            ce1O_api, ce1N = self._get_ohlc_premiums(chain_dict, ce_strikes[0], "call")
+            ce2O_api, ce2N = self._get_ohlc_premiums(chain_dict, ce_strikes[1], "call")
+            ce3O_api, ce3N = self._get_ohlc_premiums(chain_dict, ce_strikes[2], "call")
+            ce4O_api, ce4N = self._get_ohlc_premiums(chain_dict, ce_strikes[3], "call")
+            pe1O_api, pe1N = self._get_ohlc_premiums(chain_dict, pe_strikes[0], "put")
+            pe2O_api, pe2N = self._get_ohlc_premiums(chain_dict, pe_strikes[1], "put")
+            pe3O_api, pe3N = self._get_ohlc_premiums(chain_dict, pe_strikes[2], "put")
+            pe4O_api, pe4N = self._get_ohlc_premiums(chain_dict, pe_strikes[3], "put")
+
+            print(f"[DEBUG] CE Premium OHLC (MARKET CLOSED): Open={ce1O_api:.2f}/{ce2O_api:.2f}/{ce3O_api:.2f}/{ce4O_api:.2f}, Close={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
+            print(f"[DEBUG] PE Premium OHLC (MARKET CLOSED): Open={pe1O_api:.2f}/{pe2O_api:.2f}/{pe3O_api:.2f}/{pe4O_api:.2f}, Close={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
 
         # ===== STEP 5: CALCULATE MEDIAN (Pine Script exact) =====
         vc = 0
@@ -233,19 +247,30 @@ class RajProEngine:
         # ===== STEP 6: STORE DAY OPEN PREMIUMS (Pine Script: var logic) =====
         # Use opening premiums from session state if available (persistent across runs)
         if nDay:
-            # Day changed - use CURRENT LTP as opening baseline (day's first candle)
-            # When market is open: Captures LTP at market open (09:15)
-            # When market is closed: Will use ce1N as fallback
-            self.ce1O = ce1N  # Use current LTP as opening baseline
-            self.ce2O = ce2N
-            self.ce3O = ce3N
-            self.ce4O = ce4N
-            self.pe1O = pe1N
-            self.pe2O = pe2N
-            self.pe3O = pe3N
-            self.pe4O = pe4N
-            market_status = "🟢 OPEN (capturing market open LTP)" if self.market_is_open else "🔴 CLOSED (using available premium)"
-            print(f"[DEBUG] NEW DAY - {market_status}: CE1={self.ce1O:.2f}, PE1={self.pe1O:.2f}")
+            # Day changed - capture opening baseline
+            # When market is OPEN: Use current LTP (will be opening price at market open)
+            # When market is CLOSED: Use OHLC open (yesterday's opening) for erosion calculation
+            if self.market_is_open:
+                self.ce1O = ce1N
+                self.ce2O = ce2N
+                self.ce3O = ce3N
+                self.ce4O = ce4N
+                self.pe1O = pe1N
+                self.pe2O = pe2N
+                self.pe3O = pe3N
+                self.pe4O = pe4N
+                print(f"[DEBUG] NEW DAY - 🟢 OPEN (capturing market open LTP): CE1={self.ce1O:.2f}, PE1={self.pe1O:.2f}")
+            else:
+                # Market closed: Use OHLC open prices for erosion
+                self.ce1O = ce1O_api if ce1O_api > 0 else ce1N
+                self.ce2O = ce2O_api if ce2O_api > 0 else ce2N
+                self.ce3O = ce3O_api if ce3O_api > 0 else ce3N
+                self.ce4O = ce4O_api if ce4O_api > 0 else ce4N
+                self.pe1O = pe1O_api if pe1O_api > 0 else pe1N
+                self.pe2O = pe2O_api if pe2O_api > 0 else pe2N
+                self.pe3O = pe3O_api if pe3O_api > 0 else pe3N
+                self.pe4O = pe4O_api if pe4O_api > 0 else pe4N
+                print(f"[DEBUG] NEW DAY - 🔴 CLOSED (using OHLC open→close for daily decay): CE1={self.ce1O:.2f}, PE1={self.pe1O:.2f}")
         elif opening_premiums and opening_premiums.get("ce1O") is not None:
             # Same day - load persisted opening premiums from session state
             try:
