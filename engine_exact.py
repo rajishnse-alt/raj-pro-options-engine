@@ -492,7 +492,7 @@ class RajProEngine:
         Returns: (opening_premium, closing_premium)
 
         When market is OPEN today: Uses today's OHLC Open and Close (real-time decay)
-        When market is CLOSED/HOLIDAY: Uses yesterday's OHLC Open and Close (daily decay)
+        When market is CLOSED/HOLIDAY: Uses yesterday's Close as opening baseline (daily decay)
         """
         if strike not in chain_dict:
             return 0.0, 0.0
@@ -513,8 +513,16 @@ class RajProEngine:
         if closing_premium <= 0:
             closing_premium = float(market_data.get("close_price") or 0)
 
+        # MAGIC FIX: When market is closed and Open=0, use Close as opening baseline
+        # This gives yesterday's daily decay even when market is closed!
+        if not self.market_is_open and opening_premium <= 0 and closing_premium > 0:
+            opening_premium = closing_premium  # Use yesterday's close as baseline
+            source = "close_as_baseline (market closed)"
+        else:
+            source = "OHLC open/close"
+
         market_status = "OPEN" if self.market_is_open else "CLOSED/HOLIDAY"
-        print(f"[DEBUG] Strike {strike} ({opt_type}): OHLC ({market_status}): Open={opening_premium:.2f}, Close={closing_premium:.2f}")
+        print(f"[DEBUG] Strike {strike} ({opt_type}): {market_status} - Open={opening_premium:.2f}, Close={closing_premium:.2f} ({source})")
         return opening_premium, closing_premium
 
     def _build_spike_signal(self, rss_bull, rss_bear, otm_bull, otm_bear, spikes_bull, spikes_bear, strong_move) -> str:

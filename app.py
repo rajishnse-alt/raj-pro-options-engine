@@ -287,25 +287,36 @@ def main():
         # ===== EXPIRY SELECTOR =====
         st.markdown("### 📅 Expiry Selection")
 
-        # Fetch expiry dates for first symbol (NIFTY)
-        expiry_dates = None
-        try:
-            from datetime import datetime as dt
-            exp_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
-            if exp_dates:
-                expiry_dates = exp_dates
-                if "selected_expiry" not in st.session_state:
-                    st.session_state.selected_expiry = exp_dates[0]
+        col1, col2 = st.columns([3, 1])
 
-                selected_expiry = st.selectbox(
-                    "Select Expiry Date",
-                    options=expiry_dates,
-                    index=expiry_dates.index(st.session_state.selected_expiry) if st.session_state.selected_expiry in expiry_dates else 0
-                )
-                st.session_state.selected_expiry = selected_expiry
-                st.caption(f"Selected: **{selected_expiry}**")
-        except:
-            st.warning("Could not fetch expiry dates")
+        with col1:
+            # Fetch expiry dates for NIFTY
+            expiry_dates = None
+            try:
+                exp_dates, exp_err = fetch_expiry_dates(access_token, "NIFTY")
+                if exp_dates:
+                    expiry_dates = exp_dates
+                    if "selected_expiry" not in st.session_state:
+                        st.session_state.selected_expiry = exp_dates[0]
+
+                    selected_expiry = st.selectbox(
+                        "📅 Select Expiry Date",
+                        options=expiry_dates,
+                        index=expiry_dates.index(st.session_state.selected_expiry) if st.session_state.selected_expiry in expiry_dates else 0,
+                        help="Choose the expiry date for options analysis"
+                    )
+                    st.session_state.selected_expiry = selected_expiry
+                    st.caption(f"✓ Selected: **{selected_expiry}**")
+                else:
+                    st.error("❌ No expiry dates available")
+            except Exception as e:
+                st.error(f"Could not fetch expiry dates: {str(e)}")
+
+        with col2:
+            # Refresh button to pull fresh expiry dates
+            if st.button("🔄 Refresh", use_container_width=True, help="Pull latest expiry dates from Upstox"):
+                st.session_state.refresh_expiry = True
+                st.rerun()
 
         # Debug toggle
         show_debug = st.checkbox("🐛 Show Debug Info", value=False)
