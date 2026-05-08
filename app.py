@@ -264,13 +264,26 @@ def main():
         """, unsafe_allow_html=True)
         st.stop()
 
-    # Initialize engines
+    # Initialize engines and opening premium storage
     if "engines" not in st.session_state:
         st.session_state.engines = {
             "NIFTY": RajProEngine(),
             "BANKNIFTY": RajProEngine(),
             "FINNIFTY": RajProEngine(),
             "MIDCPNIFTY": RajProEngine(),
+        }
+
+    # Initialize opening premium storage (persistent across runs)
+    if "opening_premiums" not in st.session_state:
+        st.session_state.opening_premiums = {
+            "NIFTY": {"ce1O": None, "ce2O": None, "ce3O": None, "ce4O": None,
+                      "pe1O": None, "pe2O": None, "pe3O": None, "pe4O": None, "date": None},
+            "BANKNIFTY": {"ce1O": None, "ce2O": None, "ce3O": None, "ce4O": None,
+                          "pe1O": None, "pe2O": None, "pe3O": None, "pe4O": None, "date": None},
+            "FINNIFTY": {"ce1O": None, "ce2O": None, "ce3O": None, "ce4O": None,
+                         "pe1O": None, "pe2O": None, "pe3O": None, "pe4O": None, "date": None},
+            "MIDCPNIFTY": {"ce1O": None, "ce2O": None, "ce3O": None, "ce4O": None,
+                           "pe1O": None, "pe2O": None, "pe3O": None, "pe4O": None, "date": None},
         }
 
     # Sidebar
@@ -410,14 +423,33 @@ def main():
         # Process through complete engine
         try:
             engine = st.session_state.engines[symbol_key]
+
+            # Pass opening premiums from session state
+            opening_prems = st.session_state.opening_premiums.get(symbol_key, {})
+
             signal = engine.process(
                 chain_data=data,
                 underlying_price=spot,
-                opening_price=opening_price,  # NEW: pass opening price
+                opening_price=opening_price,
                 strike_gap=config["gap"],
                 symbol=symbol_key,
                 expiry_date=selected,
+                opening_premiums=opening_prems,  # NEW: pass persistent opening premiums
             )
+
+            # Update opening premiums in session state (for next run)
+            st.session_state.opening_premiums[symbol_key] = {
+                "ce1O": engine.ce1O,
+                "ce2O": engine.ce2O,
+                "ce3O": engine.ce3O,
+                "ce4O": engine.ce4O,
+                "pe1O": engine.pe1O,
+                "pe2O": engine.pe2O,
+                "pe3O": engine.pe3O,
+                "pe4O": engine.pe4O,
+                "date": str(datetime.now().date()),
+            }
+
             all_signals[symbol_key] = (signal, spot, config, selected)
             print(f"[DEBUG] {symbol_key} processed successfully: Dom={signal.dominance:.4f}, Mom={signal.momentum:.4f}")
         except Exception as e:

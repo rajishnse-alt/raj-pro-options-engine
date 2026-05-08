@@ -127,6 +127,7 @@ class RajProEngine:
         strike_gap: int,
         symbol: str = "NIFTY",
         expiry_date: Optional[str] = None,
+        opening_premiums: Optional[Dict] = None,  # NEW: persistent opening premiums from session state
     ) -> Signal:
         """
         EXACT Pine Script pipeline
@@ -208,15 +209,28 @@ class RajProEngine:
         print(f"[DEBUG] Median calculation: sum={sp:.2f}, count={vc}, median={median:.4f}")
 
         # ===== STEP 6: STORE DAY OPEN PREMIUMS (Pine Script: var logic) =====
-        # var float ce1O := nDay ? ce1N : na(ce1O) ? ce1N : ce1O
-        self.ce1O = ce1N if nDay or self.ce1O is None else self.ce1O
-        self.ce2O = ce2N if nDay or self.ce2O is None else self.ce2O
-        self.ce3O = ce3N if nDay or self.ce3O is None else self.ce3O
-        self.ce4O = ce4N if nDay or self.ce4O is None else self.ce4O
-        self.pe1O = pe1N if nDay or self.pe1O is None else self.pe1O
-        self.pe2O = pe2N if nDay or self.pe2O is None else self.pe2O
-        self.pe3O = pe3N if nDay or self.pe3O is None else self.pe3O
-        self.pe4O = pe4N if nDay or self.pe4O is None else self.pe4O
+        # Use opening premiums from session state if available (persistent across runs)
+        if opening_premiums:
+            # Load from session state (previous run's stored values)
+            self.ce1O = opening_premiums.get("ce1O") or (ce1N if self.ce1O is None else self.ce1O)
+            self.ce2O = opening_premiums.get("ce2O") or (ce2N if self.ce2O is None else self.ce2O)
+            self.ce3O = opening_premiums.get("ce3O") or (ce3N if self.ce3O is None else self.ce3O)
+            self.ce4O = opening_premiums.get("ce4O") or (ce4N if self.ce4O is None else self.ce4O)
+            self.pe1O = opening_premiums.get("pe1O") or (pe1N if self.pe1O is None else self.pe1O)
+            self.pe2O = opening_premiums.get("pe2O") or (pe2N if self.pe2O is None else self.pe2O)
+            self.pe3O = opening_premiums.get("pe3O") or (pe3N if self.pe3O is None else self.pe3O)
+            self.pe4O = opening_premiums.get("pe4O") or (pe4N if self.pe4O is None else self.pe4O)
+            print(f"[DEBUG] Loaded opening premiums from session state")
+        else:
+            # New day or first run - initialize from current premiums
+            self.ce1O = ce1N if nDay or self.ce1O is None else self.ce1O
+            self.ce2O = ce2N if nDay or self.ce2O is None else self.ce2O
+            self.ce3O = ce3N if nDay or self.ce3O is None else self.ce3O
+            self.ce4O = ce4N if nDay or self.ce4O is None else self.ce4O
+            self.pe1O = pe1N if nDay or self.pe1O is None else self.pe1O
+            self.pe2O = pe2N if nDay or self.pe2O is None else self.pe2O
+            self.pe3O = pe3N if nDay or self.pe3O is None else self.pe3O
+            self.pe4O = pe4N if nDay or self.pe4O is None else self.pe4O
 
         print(f"[DEBUG] Opening premiums: CE={self.ce1O:.2f}, PE={self.pe1O:.2f}")
 
