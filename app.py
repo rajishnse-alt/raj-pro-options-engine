@@ -415,22 +415,27 @@ def main():
                         # Get opening price from FIRST candle (market open at 09:15)
                         first_candle = candles[0]
 
+                        print(f"[DEBUG] First candle type: {type(first_candle)}")
+                        print(f"[DEBUG] First candle data: {first_candle}")
+
                         # Handle different candle data formats
                         # Format 1: Dict with keys
                         if isinstance(first_candle, dict):
                             opening_price = float(first_candle.get("open") or 0)
+                            print(f"[DEBUG] Dict format - open value: {opening_price}")
                         # Format 2: Array [timestamp, open, high, low, close, volume, oi]
                         elif isinstance(first_candle, (list, tuple)) and len(first_candle) > 1:
                             opening_price = float(first_candle[1])  # Index 1 is open
+                            print(f"[DEBUG] Array format - open at index [1]: {opening_price}")
                         else:
                             opening_price = spot
+                            print(f"[DEBUG] Unknown format, using spot: {spot:.2f}")
 
                         if opening_price > 0:
                             print(f"[DEBUG] ✓ TODAY'S opening price from 1-min candle: {opening_price:.2f}")
-                            print(f"[DEBUG] Candle structure: {type(first_candle)} = {first_candle}")
                         else:
                             opening_price = spot
-                            print(f"[DEBUG] ⚠️ Candle open not available, using spot: {spot:.2f}")
+                            print(f"[DEBUG] ⚠️ Candle open = {opening_price}, using spot: {spot:.2f}")
                     else:
                         opening_price = spot
                         print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
