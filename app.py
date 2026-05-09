@@ -809,32 +809,54 @@ def main():
     # Remove helper columns
     display_df = pcr_df.drop(columns=['_ce1_val', '_ce2_val', '_ce3_val', '_ce4_val', '_pe1_val', '_pe2_val', '_pe3_val', '_pe4_val']).copy()
 
-    # Style the dataframe - highlight FIRST value > 1 on each side
+    # Style the dataframe - highlight threshold breakout levels
     def style_pcr_row(row):
         styles = [''] * len(row)
 
-        # Find first PE column > 1 (check PE4, PE3, PE2, PE1 in order)
-        first_pe_highlighted = False
-        # Find first CE column > 1 (check CE1, CE2, CE3, CE4 in order)
-        first_ce_highlighted = False
+        pe_cols = ['PE4', 'PE3', 'PE2', 'PE1']
+        ce_cols = ['CE1', 'CE2', 'CE3', 'CE4']
 
-        for i, col in enumerate(row.index):
-            val = row[col]
-            try:
+        pe_gt1 = {}  # PE values > 1
+        ce_lt1 = {}  # CE values < 1
+
+        # Collect PE > 1 values
+        for col in pe_cols:
+            if col in row.index:
+                val = row[col]
                 if '|' in str(val):
-                    pcr_val = float(str(val).split('|')[1])
+                    try:
+                        pcr_val = float(str(val).split('|')[1])
+                        if pcr_val > 1:
+                            pe_gt1[col] = pcr_val
+                    except:
+                        pass
 
-                    # PE side: highlight FIRST column with PCR > 1 (GREEN)
-                    if "PE" in str(col) and pcr_val > 1 and not first_pe_highlighted:
-                        styles[i] = 'background-color: rgba(0, 255, 0, 0.5); color: black; font-weight: bold'
-                        first_pe_highlighted = True
+        # Collect CE < 1 values
+        for col in ce_cols:
+            if col in row.index:
+                val = row[col]
+                if '|' in str(val):
+                    try:
+                        pcr_val = float(str(val).split('|')[1])
+                        if pcr_val < 1:
+                            ce_lt1[col] = pcr_val
+                    except:
+                        pass
 
-                    # CE side: highlight FIRST column with PCR > 1 (RED)
-                    elif "CE" in str(col) and pcr_val > 1 and not first_ce_highlighted:
-                        styles[i] = 'background-color: rgba(255, 0, 0, 0.5); color: white; font-weight: bold'
-                        first_ce_highlighted = True
-            except:
-                pass
+        # PE side GREEN: Among PCR > 1, highlight the SMALLEST value (closest to 1 threshold)
+        if pe_gt1:
+            pe_min_col = min(pe_gt1, key=pe_gt1.get)  # Column with minimum PCR > 1
+            for i, col in enumerate(row.index):
+                if col == pe_min_col:
+                    styles[i] = 'background-color: rgba(0, 255, 0, 0.5); color: black; font-weight: bold'
+
+        # CE side RED: Among PCR < 1, highlight the LARGEST value (closest to 1 threshold)
+        if ce_lt1:
+            ce_max_col = max(ce_lt1, key=ce_lt1.get)  # Column with maximum PCR < 1
+            for i, col in enumerate(row.index):
+                if col == ce_max_col:
+                    styles[i] = 'background-color: rgba(255, 0, 0, 0.5); color: white; font-weight: bold'
+
         return styles
 
     styler = display_df.style.apply(style_pcr_row, axis=1)
