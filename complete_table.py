@@ -178,7 +178,7 @@ class RajProTable:
                 "0.30-0.35",
                 "Sell premium decay"
             ],
-            f"1-OTM | CE {ce1_strike} | PE {pe1_strike}": [
+            "1-OTM": [
                 f"{self.signal.premiums.get('ce1', 0):.2f}",
                 f"{self.signal.premiums.get('pe1', 0):.2f}",
                 f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
@@ -189,7 +189,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
                 ""
             ],
-            f"2-OTM | CE {ce2_strike} | PE {pe2_strike}": [
+            "2-OTM": [
                 f"{self.signal.premiums.get('ce2', 0):.2f}",
                 f"{self.signal.premiums.get('pe2', 0):.2f}",
                 f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
@@ -200,7 +200,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}",
                 ""
             ],
-            f"3-OTM | CE {ce3_strike} | PE {pe3_strike}": [
+            "3-OTM": [
                 f"{self.signal.premiums.get('ce3', 0):.2f}",
                 f"{self.signal.premiums.get('pe3', 0):.2f}",
                 f"Δ{deltas['ce'].get(3, 0):.2f}{deltas['markers_ce'].get(3, '')}",
@@ -211,7 +211,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(3, 0):.2f}{deltas['markers_pe'].get(3, '')}",
                 ""
             ],
-            f"4-OTM | CE {ce4_strike} | PE {pe4_strike}": [
+            "4-OTM": [
                 f"{self.signal.premiums.get('ce4', 0):.2f}",
                 f"{self.signal.premiums.get('pe4', 0):.2f}",
                 f"Δ{deltas['ce'].get(4, 0):.2f}{deltas['markers_ce'].get(4, '')}",
@@ -240,4 +240,9 @@ class RajProTable:
 
         # Display with Streamlit
         st.markdown("### 📊 Complete Options Analysis Table")
+
+        # Display strike header row with pipe separators
+        strikes_header = f"**Selected Strikes:**  1-OTM | CE {ce1_strike} | PE {pe1_strike}  |  2-OTM | CE {ce2_strike} | PE {pe2_strike}  |  3-OTM | CE {ce3_strike} | PE {pe3_strike}  |  4-OTM | CE {ce4_strike} | PE {pe4_strike}"
+        st.markdown(strikes_header)
+
         st.dataframe(df, width='stretch', hide_index=True)
