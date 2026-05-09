@@ -669,6 +669,13 @@ def main():
                 pe3 = f"{signal.premiums.get('pe3', 0):.2f}" if signal.premiums.get('pe3', 0) > 0 else "—"
                 pe4 = f"{signal.premiums.get('pe4', 0):.2f}" if signal.premiums.get('pe4', 0) > 0 else "—"
 
+                # Calculate strike values for PCR display
+                gap = config["gap"]
+                ce1_strike = signal.atm_strike + gap
+                ce2_strike = signal.atm_strike + 2 * gap
+                pe1_strike = signal.atm_strike - gap
+                pe2_strike = signal.atm_strike - 2 * gap
+
                 table_rows.append({
                     "Index": config["name"],
                     "Signal": f"{signal_emoji} {signal.name}",
@@ -677,7 +684,7 @@ def main():
                     "Momentum": f"{signal.momentum:+.4f}",
                     "Volatility": f"{signal.volatility:.4f}",
                     "Trend": signal.trend,
-                    "Spot": f"(ATM:{signal.atm_strike}|PCR:{signal.pcr:.2f}) ₹{spot:,.2f}",
+                    "Spot": f"({signal.atm_strike}|{signal.pcr:.2f}) ₹{spot:,.2f}",
                     "CE Ero.": f"{signal.call_erosion:+.4f}",
                     "PE Ero.": f"{signal.put_erosion:+.4f}",
                     "Gamma Score": f"{signal.gamma_score:.1f}",
@@ -732,6 +739,56 @@ def main():
     df = df.astype(str)
 
     st.dataframe(df, width='stretch', height=300)
+
+    # ─────────────────────────────────────────────
+    # PUT-CALL RATIO (PCR) TABLE
+    # ─────────────────────────────────────────────
+    st.subheader("📊 Put-Call Ratio (PCR) Summary")
+
+    pcr_rows = []
+    for symbol_key in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        if symbol_key in all_signals and all_signals[symbol_key]:
+            signal, spot, config, expiry, opening_price = all_signals[symbol_key]
+            gap = config["gap"]
+
+            # Calculate strike values
+            atm = signal.atm_strike
+            ce1 = atm + gap
+            ce2 = atm + 2 * gap
+            pe1 = atm - gap
+            pe2 = atm - 2 * gap
+
+            pcr_rows.append({
+                "Index": config["name"],
+                "ATM": f"{atm}",
+                "ATM PCR": f"{signal.pcr:.2f}",
+                "CE1 (OTM Call)": f"{ce1}",
+                "CE1 PCR": f"{signal.pcr_ce1:.2f}",
+                "CE2 (OTM Call)": f"{ce2}",
+                "CE2 PCR": f"{signal.pcr_ce2:.2f}",
+                "PE1 (OTM Put)": f"{pe1}",
+                "PE1 PCR": f"{signal.pcr_pe1:.2f}",
+                "PE2 (OTM Put)": f"{pe2}",
+                "PE2 PCR": f"{signal.pcr_pe2:.2f}",
+            })
+        else:
+            pcr_rows.append({
+                "Index": STRIKE_CONFIG[symbol_key]["name"],
+                "ATM": "—",
+                "ATM PCR": "—",
+                "CE1 (OTM Call)": "—",
+                "CE1 PCR": "—",
+                "CE2 (OTM Call)": "—",
+                "CE2 PCR": "—",
+                "PE1 (OTM Put)": "—",
+                "PE1 PCR": "—",
+                "PE2 (OTM Put)": "—",
+                "PE2 PCR": "—",
+            })
+
+    pcr_df = pd.DataFrame(pcr_rows)
+    pcr_df = pcr_df.astype(str)
+    st.dataframe(pcr_df, width='stretch', height=200)
 
     # ─────────────────────────────────────────────
     # COMPLETE RAJ PRO TABLE (Matching Pine Script)
