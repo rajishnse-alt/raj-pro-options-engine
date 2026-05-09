@@ -762,17 +762,65 @@ def main():
             pe3 = atm - 3 * gap
             pe4 = atm - 4 * gap
 
+            # Calculate deltas for gamma zone check (0.30-0.35)
+            from engine_exact import norm_cdf
+            import math
+
+            def calc_delta(S, K, T, sigma, is_call=True):
+                if S <= 0 or K <= 0 or T <= 0 or sigma <= 0:
+                    return 0.5
+                try:
+                    d1 = (math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * math.sqrt(T))
+                    delta = norm_cdf(d1)
+                    return delta if is_call else abs(1.0 - delta)
+                except:
+                    return 0.5
+
+            # Calculate days left and IV for delta calc
+            from datetime import datetime
+            try:
+                expiry = datetime.strptime(expiry, "%Y-%m-%d")
+                days_left = max((expiry - datetime.now()).total_seconds() / 86400.0, 0.5)
+                T_yr = days_left / 365.0
+            except:
+                T_yr = 0.01
+
+            # Estimate IV from straddle if available
+            sigma = 0.20  # Default
+            if signal.premiums.get('ce1', 0) > 0 and signal.premiums.get('pe1', 0) > 0:
+                straddle = signal.premiums.get('ce1', 0) + signal.premiums.get('pe1', 0)
+                sqrt_t = math.sqrt(T_yr)
+                sqrt_2_pi = 0.7979
+                if spot > 0:
+                    sigma = straddle / (spot * sqrt_t * sqrt_2_pi) if (spot * sqrt_t * sqrt_2_pi) > 0 else 0.20
+                    sigma = max(0.05, min(sigma, 2.0))
+
+            def get_gamma_marker(delta, opt_type):
+                if 0.30 <= delta <= 0.35:
+                    return " 🔺G" if opt_type == "call" else " 🔻G"
+                return ""
+
+            # Calculate gamma markers
+            ce1_gamma = get_gamma_marker(calc_delta(spot, ce1, T_yr, sigma, True), "call")
+            ce2_gamma = get_gamma_marker(calc_delta(spot, ce2, T_yr, sigma, True), "call")
+            ce3_gamma = get_gamma_marker(calc_delta(spot, ce3, T_yr, sigma, True), "call")
+            ce4_gamma = get_gamma_marker(calc_delta(spot, ce4, T_yr, sigma, True), "call")
+            pe1_gamma = get_gamma_marker(calc_delta(spot, pe1, T_yr, sigma, False), "put")
+            pe2_gamma = get_gamma_marker(calc_delta(spot, pe2, T_yr, sigma, False), "put")
+            pe3_gamma = get_gamma_marker(calc_delta(spot, pe3, T_yr, sigma, False), "put")
+            pe4_gamma = get_gamma_marker(calc_delta(spot, pe4, T_yr, sigma, False), "put")
+
             pcr_rows.append({
                 "Index": config["name"],
-                "PE4": f"{pe4}|{signal.pcr_pe4:.2f}",
-                "PE3": f"{pe3}|{signal.pcr_pe3:.2f}",
-                "PE2": f"{pe2}|{signal.pcr_pe2:.2f}",
-                "PE1": f"{pe1}|{signal.pcr_pe1:.2f}",
+                "PE4": f"{pe4}|{signal.pcr_pe4:.2f}{pe4_gamma}",
+                "PE3": f"{pe3}|{signal.pcr_pe3:.2f}{pe3_gamma}",
+                "PE2": f"{pe2}|{signal.pcr_pe2:.2f}{pe2_gamma}",
+                "PE1": f"{pe1}|{signal.pcr_pe1:.2f}{pe1_gamma}",
                 "ATM": f"{atm}|{signal.pcr:.2f}",
-                "CE1": f"{ce1}|{signal.pcr_ce1:.2f}",
-                "CE2": f"{ce2}|{signal.pcr_ce2:.2f}",
-                "CE3": f"{ce3}|{signal.pcr_ce3:.2f}",
-                "CE4": f"{ce4}|{signal.pcr_ce4:.2f}",
+                "CE1": f"{ce1}|{signal.pcr_ce1:.2f}{ce1_gamma}",
+                "CE2": f"{ce2}|{signal.pcr_ce2:.2f}{ce2_gamma}",
+                "CE3": f"{ce3}|{signal.pcr_ce3:.2f}{ce3_gamma}",
+                "CE4": f"{ce4}|{signal.pcr_ce4:.2f}{ce4_gamma}",
                 "_pe4_val": signal.pcr_pe4,
                 "_pe3_val": signal.pcr_pe3,
                 "_pe2_val": signal.pcr_pe2,
