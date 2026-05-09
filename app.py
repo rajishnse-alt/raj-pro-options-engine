@@ -450,38 +450,35 @@ def main():
                         print(f"[DEBUG] Using last traded day: {traded_date}")
 
                     if candles and len(candles) > 0:
-                        # Get opening price from FIRST candle (market open at 09:15)
+                        # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
+                        print(f"[CANDLE] Total candles fetched: {len(candles)}")
+                        print(f"[CANDLE] Raw candles data: {candles}")
+
                         first_candle = candles[0]
+                        print(f"[CANDLE] First candle: {first_candle}")
 
-                        print(f"[CANDLE-DEBUG] Candles array length: {len(candles)}")
-                        print(f"[CANDLE-DEBUG] First candle type: {type(first_candle)}")
-                        print(f"[CANDLE-DEBUG] First candle full data: {first_candle}")
-
-                        import json
-                        print(f"[CANDLE-DEBUG] First candle JSON: {json.dumps(first_candle, default=str)}")
-
-                        # Handle different candle data formats
                         opening_price = 0
 
-                        # Format 1: Dict with keys
-                        if isinstance(first_candle, dict):
-                            opening_price = float(first_candle.get("open") or 0)
-                            print(f"[CANDLE-DEBUG] Dict format detected - 'open' key value: {opening_price}")
-                        # Format 2: Array [timestamp, open, high, low, close, volume, oi]
-                        elif isinstance(first_candle, (list, tuple)):
-                            print(f"[CANDLE-DEBUG] Array/List format detected, length: {len(first_candle)}")
-                            if len(first_candle) > 1:
+                        # Try to extract open price - it should be 24233.65 for May 8th
+                        try:
+                            # Check if it's a dict
+                            if isinstance(first_candle, dict):
+                                opening_price = float(first_candle.get("open", 0))
+                                print(f"[CANDLE] Dict - extracted open: {opening_price}")
+                            # Check if it's a list [timestamp, open, high, low, close, volume, oi]
+                            elif isinstance(first_candle, list) and len(first_candle) >= 2:
                                 opening_price = float(first_candle[1])
-                                print(f"[CANDLE-DEBUG] Array format - open at index [1]: {opening_price}")
-                            elif len(first_candle) > 0:
-                                opening_price = float(first_candle[0])
-                                print(f"[CANDLE-DEBUG] Only 1 element, trying index [0]: {opening_price}")
+                                print(f"[CANDLE] List - extracted open from index [1]: {opening_price}")
+                            else:
+                                print(f"[CANDLE] Unknown format: {type(first_candle)}")
+                        except Exception as e:
+                            print(f"[CANDLE] Error extracting open: {e}")
 
                         if opening_price > 0:
-                            print(f"[CANDLE-DEBUG] ✓ Opening price from candle: {opening_price:.2f}")
+                            print(f"[CANDLE] ✓ SUCCESS! Opening price: {opening_price:.2f}")
                         else:
                             opening_price = spot
-                            print(f"[CANDLE-DEBUG] ❌ Candle parsing failed, using spot: {spot:.2f}")
+                            print(f"[CANDLE] FAILED! Using spot: {spot:.2f}")
                     else:
                         opening_price = spot
                         print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
