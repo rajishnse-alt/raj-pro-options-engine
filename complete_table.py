@@ -169,7 +169,7 @@ class RajProTable:
                 "🔺G=CE 🔻G=PE"
             ],
             "Selected": [
-                f"{self.atm}",
+                f"({self.atm}|{self.signal.pcr:.2f})",
                 f"{self.atm}",
                 "PE Δ",
                 self.signal.spike_signal,

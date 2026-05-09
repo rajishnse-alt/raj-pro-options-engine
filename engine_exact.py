@@ -38,6 +38,8 @@ class Signal:
     pe_erosions: Dict[int, float]
     premiums: Dict[str, float]
     median: float
+    atm_strike: int
+    pcr: float
 
 
 def norm_cdf(x):
@@ -446,6 +448,9 @@ class RajProEngine:
         confidence = 0.9 if "CONFIRMED" in signal_name else 0.7 if "BUILDING" in signal_name else 0.3
         color = "green" if "UP" in signal_name else "red" if "DN" in signal_name else "gray"
 
+        # Calculate PCR for ATM strike
+        pcr = self._calculate_pcr(chain_dict, atm)
+
         return Signal(
             name=signal_name,
             confidence=confidence,
@@ -473,7 +478,9 @@ class RajProEngine:
                 'ce1': ce1N or 0, 'ce2': ce2N or 0, 'ce3': ce3N or 0, 'ce4': ce4N or 0,
                 'pe1': pe1N or 0, 'pe2': pe2N or 0, 'pe3': pe3N or 0, 'pe4': pe4N or 0,
             },
-            median=median / 1000.0  # Pine Script plots med / 1000
+            median=median / 1000.0,  # Pine Script plots med / 1000
+            atm_strike=atm,
+            pcr=pcr
         )
 
     def _get_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
@@ -563,6 +570,36 @@ class RajProEngine:
         market_status = "OPEN" if self.market_is_open else "CLOSED/HOLIDAY"
         print(f"[DEBUG] Strike {strike} ({opt_type}): {market_status} - Open={opening_premium:.2f}, Close={closing_premium:.2f} ({source})")
         return opening_premium, closing_premium
+
+    def _calculate_pcr(self, chain_dict: Dict, atm_strike: int) -> float:
+        """Calculate Put-Call Ratio for ATM strike from open interest"""
+        try:
+            ce_oi = 0.0
+            pe_oi = 0.0
+
+            if atm_strike in chain_dict:
+                row = chain_dict[atm_strike]
+
+                # Get CE open interest
+                ce_data = row.get("call_options") or {}
+                ce_market = ce_data.get("market_data") or {}
+                ce_oi = float(ce_market.get("open_interest") or 0)
+
+                # Get PE open interest
+                pe_data = row.get("put_options") or {}
+                pe_market = pe_data.get("market_data") or {}
+                pe_oi = float(pe_market.get("open_interest") or 0)
+
+            if ce_oi > 0:
+                pcr = pe_oi / ce_oi
+                print(f"[DEBUG] PCR at ATM {atm_strike}: PE_OI={pe_oi:.0f} / CE_OI={ce_oi:.0f} = {pcr:.2f}")
+                return pcr
+            else:
+                print(f"[DEBUG] PCR: No CE open interest at ATM {atm_strike}")
+                return 0.0
+        except Exception as e:
+            print(f"[DEBUG] PCR calculation error: {str(e)}")
+            return 0.0
 
     def _build_spike_signal(self, rss_bull, rss_bear, otm_bull, otm_bear, spikes_bull, spikes_bear, strong_move) -> str:
         """Build spike signal matching Pine Script"""
