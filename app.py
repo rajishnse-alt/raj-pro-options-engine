@@ -807,23 +807,32 @@ def main():
     pcr_df = pd.DataFrame(pcr_rows)
 
     # Remove helper columns
-    display_df = pcr_df.drop(columns=['_ce1_val', '_ce2_val', '_pe1_val', '_pe2_val']).copy()
+    display_df = pcr_df.drop(columns=['_ce1_val', '_ce2_val', '_ce3_val', '_ce4_val', '_pe1_val', '_pe2_val', '_pe3_val', '_pe4_val']).copy()
 
-    # Style the dataframe with conditional coloring
+    # Style the dataframe - highlight FIRST value > 1 on each side
     def style_pcr_row(row):
         styles = [''] * len(row)
+
+        # Find first PE column > 1 (check PE4, PE3, PE2, PE1 in order)
+        first_pe_highlighted = False
+        # Find first CE column > 1 (check CE1, CE2, CE3, CE4 in order)
+        first_ce_highlighted = False
+
         for i, col in enumerate(row.index):
             val = row[col]
             try:
                 if '|' in str(val):
                     pcr_val = float(str(val).split('|')[1])
 
-                    if "CE" in str(col) and pcr_val > 1:
-                        # RED for CE when PCR > 1 (bearish)
-                        styles[i] = 'background-color: rgba(255, 0, 0, 0.4); color: white'
-                    elif "PE" in str(col) and pcr_val > 1:
-                        # GREEN for PE when PCR > 1 (bullish)
-                        styles[i] = 'background-color: rgba(0, 255, 0, 0.4); color: black'
+                    # PE side: highlight FIRST column with PCR > 1 (GREEN)
+                    if "PE" in str(col) and pcr_val > 1 and not first_pe_highlighted:
+                        styles[i] = 'background-color: rgba(0, 255, 0, 0.5); color: black; font-weight: bold'
+                        first_pe_highlighted = True
+
+                    # CE side: highlight FIRST column with PCR > 1 (RED)
+                    elif "CE" in str(col) and pcr_val > 1 and not first_ce_highlighted:
+                        styles[i] = 'background-color: rgba(255, 0, 0, 0.5); color: white; font-weight: bold'
+                        first_ce_highlighted = True
             except:
                 pass
         return styles
