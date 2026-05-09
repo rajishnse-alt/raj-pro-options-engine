@@ -614,7 +614,7 @@ def main():
             print(f"[DEBUG] {symbol_key} - Updated session state with opening premiums:")
             print(f"[DEBUG] Stored: ce1O={st.session_state.opening_premiums[symbol_key]['ce1O']}, pe1O={st.session_state.opening_premiums[symbol_key]['pe1O']}, date={st.session_state.opening_premiums[symbol_key]['date']}")
 
-            all_signals[symbol_key] = (signal, spot, config, selected)
+            all_signals[symbol_key] = (signal, spot, config, selected, opening_price)
             print(f"[DEBUG] {symbol_key} processed successfully:")
             print(f"[DEBUG]   Dominance: {signal.dominance:+.4f}")
             print(f"[DEBUG]   Momentum: {signal.momentum:+.4f}")
@@ -658,7 +658,7 @@ def main():
             pass
 
         if symbol_key in all_signals and all_signals[symbol_key]:
-            signal, spot, config, expiry = all_signals[symbol_key]
+            signal, spot, config, expiry, opening_price = all_signals[symbol_key]
 
             signal_emoji = "🟢" if signal.color == "green" else "🔴" if signal.color == "red" else "🟡"
 
@@ -726,8 +726,9 @@ def main():
     for idx, symbol_key in enumerate(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]):
         with tabs[idx]:
             if symbol_key in all_signals and all_signals[symbol_key]:
-                signal, spot, config, expiry = all_signals[symbol_key]
-                atm = int(config["gap"] * round(spot / config["gap"]))
+                signal, spot, config, expiry, opening_price = all_signals[symbol_key]
+                # Use opening price for ATM calculation (more accurate for closed market)
+                atm = int(config["gap"] * round(opening_price / config["gap"]))
 
                 try:
                     # Create and display complete table
@@ -766,7 +767,7 @@ def main():
     for idx, symbol_key in enumerate(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]):
         with gamma_cols[idx]:
             if symbol_key in all_signals and all_signals[symbol_key]:
-                signal, spot, config, expiry = all_signals[symbol_key]
+                signal, spot, config, expiry, opening_price = all_signals[symbol_key]
 
                 try:
                     # Initialize gamma analyzer
@@ -776,8 +777,8 @@ def main():
                     ce1_prem = signal.premiums.get("ce1", 0)
                     pe1_prem = signal.premiums.get("pe1", 0)
 
-                    # Calculate all deltas
-                    atm = int(config["gap"] * round(spot / config["gap"]))
+                    # Calculate all deltas (use opening price for ATM when market closed)
+                    atm = int(config["gap"] * round(opening_price / config["gap"]))
                     deltas = gamma.calculate_deltas(
                         spot=spot,
                         atm_strike=atm,
