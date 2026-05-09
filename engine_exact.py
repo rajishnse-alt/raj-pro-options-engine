@@ -43,8 +43,12 @@ class Signal:
     pcr: float
     pcr_ce1: float  # PCR at CE1 (ATM + gap)
     pcr_ce2: float  # PCR at CE2 (ATM + 2*gap)
+    pcr_ce3: float  # PCR at CE3 (ATM + 3*gap)
+    pcr_ce4: float  # PCR at CE4 (ATM + 4*gap)
     pcr_pe1: float  # PCR at PE1 (ATM - gap)
     pcr_pe2: float  # PCR at PE2 (ATM - 2*gap)
+    pcr_pe3: float  # PCR at PE3 (ATM - 3*gap)
+    pcr_pe4: float  # PCR at PE4 (ATM - 4*gap)
 
 
 def norm_cdf(x):
@@ -456,12 +460,16 @@ class RajProEngine:
         confidence = 0.9 if "CONFIRMED" in signal_name else 0.7 if "BUILDING" in signal_name else 0.3
         color = "green" if "UP" in signal_name else "red" if "DN" in signal_name else "gray"
 
-        # Calculate PCR for current ATM (based on live spot price) and all OTM strikes
+        # Calculate PCR for current ATM (based on live spot price) and all OTM strikes (CE1-CE4, PE1-PE4)
         pcr = self._calculate_pcr(chain_dict, current_atm)
-        pcr_ce1 = self._calculate_pcr(chain_dict, current_atm + sGap)      # CE1: Current ATM + gap (OTM)
-        pcr_ce2 = self._calculate_pcr(chain_dict, current_atm + 2 * sGap)  # CE2: Current ATM + 2*gap (OTM)
-        pcr_pe1 = self._calculate_pcr(chain_dict, current_atm - sGap)      # PE1: Current ATM - gap (OTM)
-        pcr_pe2 = self._calculate_pcr(chain_dict, current_atm - 2 * sGap)  # PE2: Current ATM - 2*gap (OTM)
+        pcr_ce1 = self._calculate_pcr(chain_dict, current_atm + sGap)      # CE1: Current ATM + gap
+        pcr_ce2 = self._calculate_pcr(chain_dict, current_atm + 2 * sGap)  # CE2: Current ATM + 2*gap
+        pcr_ce3 = self._calculate_pcr(chain_dict, current_atm + 3 * sGap)  # CE3: Current ATM + 3*gap
+        pcr_ce4 = self._calculate_pcr(chain_dict, current_atm + 4 * sGap)  # CE4: Current ATM + 4*gap
+        pcr_pe1 = self._calculate_pcr(chain_dict, current_atm - sGap)      # PE1: Current ATM - gap
+        pcr_pe2 = self._calculate_pcr(chain_dict, current_atm - 2 * sGap)  # PE2: Current ATM - 2*gap
+        pcr_pe3 = self._calculate_pcr(chain_dict, current_atm - 3 * sGap)  # PE3: Current ATM - 3*gap
+        pcr_pe4 = self._calculate_pcr(chain_dict, current_atm - 4 * sGap)  # PE4: Current ATM - 4*gap
 
         return Signal(
             name=signal_name,
@@ -496,8 +504,12 @@ class RajProEngine:
             pcr=pcr,
             pcr_ce1=pcr_ce1,
             pcr_ce2=pcr_ce2,
+            pcr_ce3=pcr_ce3,
+            pcr_ce4=pcr_ce4,
             pcr_pe1=pcr_pe1,
-            pcr_pe2=pcr_pe2
+            pcr_pe2=pcr_pe2,
+            pcr_pe3=pcr_pe3,
+            pcr_pe4=pcr_pe4
         )
 
     def _get_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:

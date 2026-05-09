@@ -755,33 +755,53 @@ def main():
             atm = signal.current_atm
             ce1 = atm + gap
             ce2 = atm + 2 * gap
+            ce3 = atm + 3 * gap
+            ce4 = atm + 4 * gap
             pe1 = atm - gap
             pe2 = atm - 2 * gap
+            pe3 = atm - 3 * gap
+            pe4 = atm - 4 * gap
 
             pcr_rows.append({
                 "Index": config["name"],
-                "PE2 (OTM Put)": f"{pe2}|{signal.pcr_pe2:.2f}",
-                "PE1 (OTM Put)": f"{pe1}|{signal.pcr_pe1:.2f}",
+                "PE4": f"{pe4}|{signal.pcr_pe4:.2f}",
+                "PE3": f"{pe3}|{signal.pcr_pe3:.2f}",
+                "PE2": f"{pe2}|{signal.pcr_pe2:.2f}",
+                "PE1": f"{pe1}|{signal.pcr_pe1:.2f}",
                 "ATM": f"{atm}|{signal.pcr:.2f}",
-                "CE1 (OTM Call)": f"{ce1}|{signal.pcr_ce1:.2f}",
-                "CE2 (OTM Call)": f"{ce2}|{signal.pcr_ce2:.2f}",
+                "CE1": f"{ce1}|{signal.pcr_ce1:.2f}",
+                "CE2": f"{ce2}|{signal.pcr_ce2:.2f}",
+                "CE3": f"{ce3}|{signal.pcr_ce3:.2f}",
+                "CE4": f"{ce4}|{signal.pcr_ce4:.2f}",
+                "_pe4_val": signal.pcr_pe4,
+                "_pe3_val": signal.pcr_pe3,
                 "_pe2_val": signal.pcr_pe2,
                 "_pe1_val": signal.pcr_pe1,
                 "_ce1_val": signal.pcr_ce1,
                 "_ce2_val": signal.pcr_ce2,
+                "_ce3_val": signal.pcr_ce3,
+                "_ce4_val": signal.pcr_ce4,
             })
         else:
             pcr_rows.append({
                 "Index": STRIKE_CONFIG[symbol_key]["name"],
-                "PE2 (OTM Put)": "—",
-                "PE1 (OTM Put)": "—",
+                "PE4": "—",
+                "PE3": "—",
+                "PE2": "—",
+                "PE1": "—",
                 "ATM": "—",
-                "CE1 (OTM Call)": "—",
-                "CE2 (OTM Call)": "—",
+                "CE1": "—",
+                "CE2": "—",
+                "CE3": "—",
+                "CE4": "—",
+                "_pe4_val": 0,
+                "_pe3_val": 0,
                 "_pe2_val": 0,
                 "_pe1_val": 0,
                 "_ce1_val": 0,
                 "_ce2_val": 0,
+                "_ce3_val": 0,
+                "_ce4_val": 0,
             })
 
     pcr_df = pd.DataFrame(pcr_rows)
