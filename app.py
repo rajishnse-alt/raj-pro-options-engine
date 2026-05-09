@@ -223,13 +223,29 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
         d = r.json()
 
         if d.get("status") == "success" and d.get("data"):
-            candles = d["data"]
-            print(f"[DEBUG] Got {len(candles)} candles for {symbol} on {date_str}")
-            return candles, None
+            data = d["data"]
+
+            # Handle nested structure: data might be {"candles": [...]} or just [...]
+            if isinstance(data, dict) and "candles" in data:
+                candles = data["candles"]
+            elif isinstance(data, list):
+                candles = data
+            else:
+                print(f"[ERROR] Unexpected data structure: {type(data)}")
+                return None, f"Unexpected data structure: {type(data)}"
+
+            if candles and len(candles) > 0:
+                print(f"[DEBUG] Got {len(candles)} candles for {symbol} on {date_str}")
+                print(f"[DEBUG] First candle: {candles[0]}")
+                return candles, None
+            else:
+                return None, f"No candles in data"
 
         return None, f"Failed: {d}"
     except Exception as e:
         print(f"[ERROR] Historical candles fetch failed: {e}")
+        import traceback
+        traceback.print_exc()
         return None, str(e)
 
 def fetch_last_traded_day_candles(token: str, symbol: str, max_days_back: int = 10) -> tuple:
@@ -367,7 +383,7 @@ def main():
         # Debug toggle
         show_debug = st.checkbox("🐛 Show Debug Info", value=False)
 
-        if st.button("🔓 Logout", use_container_width=True):
+        if st.button("🔓 Logout", width='stretch'):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -449,39 +465,40 @@ def main():
                     if traded_date:
                         print(f"[DEBUG] Using last traded day: {traded_date}")
 
-                    if candles and len(candles) > 0:
+                    if candles and isinstance(candles, list) and len(candles) > 0:
                         # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
                         print(f"[CANDLE] Total candles fetched: {len(candles)}")
-                        print(f"[CANDLE] Raw candles data: {candles}")
 
                         first_candle = candles[0]
-                        print(f"[CANDLE] First candle: {first_candle}")
+                        print(f"[CANDLE] First candle type: {type(first_candle)}, value: {first_candle}")
 
                         opening_price = 0
 
                         # Try to extract open price - it should be 24233.65 for May 8th
                         try:
-                            # Check if it's a dict
-                            if isinstance(first_candle, dict):
-                                opening_price = float(first_candle.get("open", 0))
-                                print(f"[CANDLE] Dict - extracted open: {opening_price}")
                             # Check if it's a list [timestamp, open, high, low, close, volume, oi]
-                            elif isinstance(first_candle, list) and len(first_candle) >= 2:
+                            if isinstance(first_candle, list) and len(first_candle) >= 2:
                                 opening_price = float(first_candle[1])
-                                print(f"[CANDLE] List - extracted open from index [1]: {opening_price}")
+                                print(f"[CANDLE] ✓ List format - extracted open from index [1]: {opening_price:.2f}")
+                            # Check if it's a dict
+                            elif isinstance(first_candle, dict):
+                                opening_price = float(first_candle.get("open", 0))
+                                print(f"[CANDLE] ✓ Dict format - extracted open: {opening_price:.2f}")
                             else:
-                                print(f"[CANDLE] Unknown format: {type(first_candle)}")
+                                print(f"[CANDLE] ✗ Unknown format: {type(first_candle)}")
                         except Exception as e:
-                            print(f"[CANDLE] Error extracting open: {e}")
+                            print(f"[CANDLE] ✗ Error extracting open: {e}")
+                            import traceback
+                            traceback.print_exc()
 
                         if opening_price > 0:
-                            print(f"[CANDLE] ✓ SUCCESS! Opening price: {opening_price:.2f}")
+                            print(f"[CANDLE] ✓✓ SUCCESS! Opening price: {opening_price:.2f}")
                         else:
                             opening_price = spot
-                            print(f"[CANDLE] FAILED! Using spot: {spot:.2f}")
+                            print(f"[CANDLE] ✗✗ FAILED! Using spot: {spot:.2f}")
                     else:
                         opening_price = spot
-                        print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
+                        print(f"[DEBUG] ⚠️ No valid candle data (type={type(candles)}, len={len(candles) if isinstance(candles, list) else 'N/A'}), using spot: {spot:.2f}")
                 else:
                     # Market OPEN: Use underlying_open_price from chain (today's opening at 09:15)
                     if data:
@@ -656,9 +673,13 @@ def main():
                 "Bear Bars": "—",
             })
 
-    # Display table
+    # Display table with PyArrow safe conversion
     df = pd.DataFrame(table_rows)
-    st.dataframe(df, use_container_width=True, height=300)
+
+    # Convert all columns to strings for PyArrow compatibility (handles mixed "—" and numeric values)
+    df = df.astype(str)
+
+    st.dataframe(df, width='stretch', height=300)
 
     # ─────────────────────────────────────────────
     # COMPLETE RAJ PRO TABLE (Matching Pine Script)
@@ -757,7 +778,7 @@ def main():
                         }
 
                         delta_df = pd.DataFrame(delta_data)
-                        st.dataframe(delta_df, hide_index=True, use_container_width=True)
+                        st.dataframe(delta_df, hide_index=True, width='stretch')
 
                         st.caption(f"IV: {deltas['sigma']*100:.1f}% | T: {deltas['days_left']:.1f}d | 🔺G/🔻G = Max Gamma Zone (Δ 0.30-0.35)")
 
@@ -803,7 +824,7 @@ def main():
 
     # Manual refresh button
     st.markdown("---")
-    if st.button("🔄 Refresh Data (Manual)", use_container_width=True):
+    if st.button("🔄 Refresh Data (Manual)", width='stretch'):
         st.rerun()
 
 
