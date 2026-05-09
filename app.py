@@ -461,7 +461,7 @@ def main():
                     if candles and isinstance(candles, list) and len(candles) > 0:
                         # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
                         # Upstox format: [timestamp, open, high, low, close, volume, oi]
-                        print(f"[CANDLE] ✓ Fetched {len(candles)} 1-minute candles for {symbol}")
+                        print(f"[CANDLE] ✓ Fetched {len(candles)} 1-minute candles for {symbol_key}")
 
                         first_candle = candles[0]
                         print(f"[CANDLE] First candle: {first_candle}")
