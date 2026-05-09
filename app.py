@@ -154,15 +154,11 @@ def fetch_expiry_dates(token: str, symbol: str) -> tuple:
         return None, str(e)
 
 def fetch_chain(token: str, symbol: str, expiry_date: str) -> tuple:
-    cache_key = f"oc_{symbol}_{expiry_date}"
-    time_key = f"oc_time_{symbol}_{expiry_date}"
-    now = time.time()
+    """Fetch fresh option chain data on every call (NO caching of LTP)
 
-    if (cache_key in st.session_state and
-            time_key in st.session_state and
-            now - st.session_state[time_key] < 180):
-        return st.session_state[cache_key], None, "cached"
-
+    User requirement: LTP must always be fresh for accurate premium values.
+    Expiry_date persistence is handled separately in session state.
+    """
     for url in UPSTOX_OC_URLS:
         try:
             r = requests.get(
@@ -180,10 +176,10 @@ def fetch_chain(token: str, symbol: str, expiry_date: str) -> tuple:
             if d.get("status") == "success":
                 data = d.get("data") or []
                 if data:
-                    st.session_state[cache_key] = data
-                    st.session_state[time_key] = now
+                    print(f"[DEBUG] Fetched FRESH option chain data from {url}")
                     return data, None, url
-        except:
+        except Exception as e:
+            print(f"[DEBUG] Error fetching from {url}: {str(e)}")
             pass
 
     return None, "Failed to fetch chain", UPSTOX_OC_URLS[-1]
