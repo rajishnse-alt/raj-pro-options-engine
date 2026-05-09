@@ -196,18 +196,23 @@ class RajProEngine:
             except (ValueError, TypeError):
                 continue
 
-        # Get premiums based on market status
-        if self.market_is_open:
-            # Market OPEN: Use live LTP
-            ce1N = self._get_premium(chain_dict, ce_strikes[0], "call")
-            ce2N = self._get_premium(chain_dict, ce_strikes[1], "call")
-            ce3N = self._get_premium(chain_dict, ce_strikes[2], "call")
-            ce4N = self._get_premium(chain_dict, ce_strikes[3], "call")
-            pe1N = self._get_premium(chain_dict, pe_strikes[0], "put")
-            pe2N = self._get_premium(chain_dict, pe_strikes[1], "put")
-            pe3N = self._get_premium(chain_dict, pe_strikes[2], "put")
-            pe4N = self._get_premium(chain_dict, pe_strikes[3], "put")
+        # Get current premiums - ALWAYS use _get_premium() (works for both open and closed)
+        # This tries market_data.ltp first, then close_price, then bid/ask average
+        ce1N = self._get_premium(chain_dict, ce_strikes[0], "call")
+        ce2N = self._get_premium(chain_dict, ce_strikes[1], "call")
+        ce3N = self._get_premium(chain_dict, ce_strikes[2], "call")
+        ce4N = self._get_premium(chain_dict, ce_strikes[3], "call")
+        pe1N = self._get_premium(chain_dict, pe_strikes[0], "put")
+        pe2N = self._get_premium(chain_dict, pe_strikes[1], "put")
+        pe3N = self._get_premium(chain_dict, pe_strikes[2], "put")
+        pe4N = self._get_premium(chain_dict, pe_strikes[3], "put")
 
+        print(f"[DEBUG] CE Premium CURRENT (LTP): {ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
+        print(f"[DEBUG] PE Premium CURRENT (LTP): {pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
+
+        # Get opening premiums for erosion calculation
+        if self.market_is_open:
+            # Market OPEN: Opening premiums = current LTP (no OHLC available intraday)
             ce1O_api = ce1N
             ce2O_api = ce2N
             ce3O_api = ce3N
@@ -216,22 +221,20 @@ class RajProEngine:
             pe2O_api = pe2N
             pe3O_api = pe3N
             pe4O_api = pe4N
-
-            print(f"[DEBUG] CE Premium LTP (MARKET OPEN): Current={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
-            print(f"[DEBUG] PE Premium LTP (MARKET OPEN): Current={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
+            print(f"[DEBUG] Opening premiums (MARKET OPEN): Using current LTP as reference")
         else:
-            # Market CLOSED: Use OHLC (yesterday's open to close)
-            ce1O_api, ce1N = self._get_ohlc_premiums(chain_dict, ce_strikes[0], "call")
-            ce2O_api, ce2N = self._get_ohlc_premiums(chain_dict, ce_strikes[1], "call")
-            ce3O_api, ce3N = self._get_ohlc_premiums(chain_dict, ce_strikes[2], "call")
-            ce4O_api, ce4N = self._get_ohlc_premiums(chain_dict, ce_strikes[3], "call")
-            pe1O_api, pe1N = self._get_ohlc_premiums(chain_dict, pe_strikes[0], "put")
-            pe2O_api, pe2N = self._get_ohlc_premiums(chain_dict, pe_strikes[1], "put")
-            pe3O_api, pe3N = self._get_ohlc_premiums(chain_dict, pe_strikes[2], "put")
-            pe4O_api, pe4N = self._get_ohlc_premiums(chain_dict, pe_strikes[3], "put")
-
-            print(f"[DEBUG] CE Premium OHLC (MARKET CLOSED): Open={ce1O_api:.2f}/{ce2O_api:.2f}/{ce3O_api:.2f}/{ce4O_api:.2f}, Close={ce1N:.2f}/{ce2N:.2f}/{ce3N:.2f}/{ce4N:.2f}")
-            print(f"[DEBUG] PE Premium OHLC (MARKET CLOSED): Open={pe1O_api:.2f}/{pe2O_api:.2f}/{pe3O_api:.2f}/{pe4O_api:.2f}, Close={pe1N:.2f}/{pe2N:.2f}/{pe3N:.2f}/{pe4N:.2f}")
+            # Market CLOSED: Get opening premiums from OHLC
+            ce1O_api, _ = self._get_ohlc_premiums(chain_dict, ce_strikes[0], "call")
+            ce2O_api, _ = self._get_ohlc_premiums(chain_dict, ce_strikes[1], "call")
+            ce3O_api, _ = self._get_ohlc_premiums(chain_dict, ce_strikes[2], "call")
+            ce4O_api, _ = self._get_ohlc_premiums(chain_dict, ce_strikes[3], "call")
+            pe1O_api, _ = self._get_ohlc_premiums(chain_dict, pe_strikes[0], "put")
+            pe2O_api, _ = self._get_ohlc_premiums(chain_dict, pe_strikes[1], "put")
+            pe3O_api, _ = self._get_ohlc_premiums(chain_dict, pe_strikes[2], "put")
+            pe4O_api, _ = self._get_ohlc_premiums(chain_dict, pe_strikes[3], "put")
+            print(f"[DEBUG] Opening premiums (MARKET CLOSED): Using OHLC open")
+            print(f"[DEBUG] CE Opening OHLC: {ce1O_api:.2f}/{ce2O_api:.2f}/{ce3O_api:.2f}/{ce4O_api:.2f}")
+            print(f"[DEBUG] PE Opening OHLC: {pe1O_api:.2f}/{pe2O_api:.2f}/{pe3O_api:.2f}/{pe4O_api:.2f}")
 
         # ===== STEP 5: CALCULATE MEDIAN (Pine Script exact) =====
         vc = 0
