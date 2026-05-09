@@ -190,7 +190,7 @@ def fetch_chain(token: str, symbol: str, expiry_date: str) -> tuple:
 
 def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
     """Fetch 1-minute historical candles for a symbol on a specific date
-    Used to get opening price when market is closed
+    Used for debugging to understand candle order
 
     Args:
         token: API access token
@@ -198,18 +198,13 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
         date_str: Date in YYYY-MM-DD format
 
     Returns:
-        (candles_data, error_message)
+        (candles_list, error_message)
     """
     try:
-        from datetime import datetime, timedelta
-
-        # Get instrument key for underlying (not options)
         instrument_key = INSTRUMENT_KEY[symbol]
+        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/minute/{date_str}/{date_str}"
 
-        # Construct URL: /historical-candle/{instrument_key}/1minute/{to_date}/{from_date}
-        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/1minute/{date_str}/{date_str}"
-
-        print(f"[DEBUG] Fetching historical candles: {url}")
+        print(f"[DEBUG] Fetching 1-minute candles: {url}")
 
         r = requests.get(
             url,
@@ -223,27 +218,72 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
         d = r.json()
 
         if d.get("status") == "success" and d.get("data"):
-            # Upstox API structure: {"status": "success", "data": {"candles": [...]}}
             candles = d.get("data", {}).get("candles", [])
 
             if isinstance(candles, list) and len(candles) > 0:
-                print(f"[DEBUG] ✓ Got {len(candles)} candles for {symbol} on {date_str}")
-                print(f"[DEBUG] First candle: {candles[0]}")
+                print(f"[DEBUG] ✓ Got {len(candles)} 1-minute candles for {symbol}")
                 return candles, None
             else:
-                print(f"[ERROR] Invalid candles structure: type={type(candles)}, len={len(candles) if isinstance(candles, list) else 'N/A'}")
                 return None, f"No candles in response"
 
         return None, f"Failed: {d}"
     except Exception as e:
-        print(f"[ERROR] Historical candles fetch failed: {e}")
+        print(f"[ERROR] 1-minute candles fetch failed: {e}")
         import traceback
         traceback.print_exc()
         return None, str(e)
 
-def fetch_last_traded_day_candles(token: str, symbol: str, max_days_back: int = 10) -> tuple:
-    """Find the LAST TRADED DAY and fetch its 1-minute candles
-    Goes back up to max_days_back looking for a day with trading data
+def fetch_daily_candle(token: str, symbol: str, date_str: str) -> tuple:
+    """Fetch DAILY candle for a specific date to get day's opening price
+
+    Args:
+        token: API access token
+        symbol: NIFTY, BANKNIFTY, etc.
+        date_str: Date in YYYY-MM-DD format
+
+    Returns:
+        (candle_data, error_message) where candle = [timestamp, open, high, low, close, vol, oi]
+    """
+    try:
+        # Get instrument key for underlying (not options)
+        instrument_key = INSTRUMENT_KEY[symbol]
+
+        # Fetch DAILY candle: /historical-candle/{instrument_key}/day/{to_date}/{from_date}
+        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/day/{date_str}/{date_str}"
+
+        print(f"[DEBUG] Fetching daily candle: {url}")
+
+        r = requests.get(
+            url,
+            headers=upstox_headers(token),
+            timeout=15,
+        )
+
+        if r.status_code == 401:
+            return None, "token_expired"
+
+        d = r.json()
+
+        if d.get("status") == "success" and d.get("data"):
+            candles = d.get("data", {}).get("candles", [])
+
+            if isinstance(candles, list) and len(candles) > 0:
+                daily_candle = candles[0]
+                print(f"[DEBUG] ✓ Daily candle for {symbol} on {date_str}: {daily_candle}")
+                return daily_candle, None
+            else:
+                print(f"[ERROR] No daily candle data")
+                return None, f"No candles in response"
+
+        return None, f"Failed: {d}"
+    except Exception as e:
+        print(f"[ERROR] Daily candle fetch failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None, str(e)
+
+def fetch_last_traded_day_opening(token: str, symbol: str, max_days_back: int = 10) -> tuple:
+    """Find the LAST TRADED DAY and fetch its DAILY candle to get opening price
 
     Args:
         token: API access token
@@ -251,7 +291,7 @@ def fetch_last_traded_day_candles(token: str, symbol: str, max_days_back: int = 
         max_days_back: Maximum days to search back (default 10)
 
     Returns:
-        (candles_data, traded_date_str, error_message)
+        (opening_price, traded_date_str, error_message)
     """
     from datetime import datetime, timedelta
 
@@ -267,13 +307,15 @@ def fetch_last_traded_day_candles(token: str, symbol: str, max_days_back: int = 
             print(f"[DEBUG] {date_str} is weekend, skipping")
             continue
 
-        candles, error = fetch_historical_candles(token, symbol, date_str)
+        daily_candle, error = fetch_daily_candle(token, symbol, date_str)
 
-        if candles and len(candles) > 0:
-            print(f"[DEBUG] ✓ Found last traded day: {date_str} with {len(candles)} candles")
-            return candles, date_str, None
+        if daily_candle and isinstance(daily_candle, list) and len(daily_candle) >= 2:
+            opening_price = float(daily_candle[1])  # Index 1 = OPEN
+            timestamp = daily_candle[0]
+            print(f"[DEBUG] ✓ Found last traded day: {date_str}, Opening: {opening_price:.2f}")
+            return opening_price, date_str, None
 
-        print(f"[DEBUG] No candles on {date_str}, searching further back...")
+        print(f"[DEBUG] No daily candle on {date_str}, searching further back...")
 
     return None, None, f"No traded day found in last {max_days_back} days"
 
@@ -453,34 +495,41 @@ def main():
 
                 if not is_market_open:
                     # Market CLOSED: Find LAST TRADED DAY and get its opening price
-                    print(f"[DEBUG] Market closed, finding last traded day...")
-                    candles, traded_date, candle_err = fetch_last_traded_day_candles(access_token, symbol_key)
+                    print(f"[DEBUG] Market closed, finding last traded day's opening price...")
+                    opening_price, traded_date, candle_err = fetch_last_traded_day_opening(access_token, symbol_key)
+
                     if traded_date:
-                        print(f"[DEBUG] Using last traded day: {traded_date}")
+                        print(f"[DEBUG] ✓ Using last traded day: {traded_date}")
 
-                    if candles and isinstance(candles, list) and len(candles) > 0:
-                        # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
-                        # Upstox returns candles in REVERSE order (newest first), so get LAST element
-                        # Upstox format: [timestamp, open, high, low, close, volume, oi]
-                        print(f"[CANDLE] ✓ Fetched {len(candles)} 1-minute candles for {symbol_key}")
+                    # ALSO fetch 1-minute candles for comparison/debugging
+                    print(f"\n[DEBUG] ===== COMPARISON: 1-MIN vs DAILY CANDLE =====")
+                    from datetime import datetime, timedelta
+                    search_date = datetime.now() - timedelta(days=1)
+                    date_str = search_date.strftime("%Y-%m-%d")
+                    if search_date.weekday() >= 5:  # If weekend, go back further
+                        for days_back in range(1, 10):
+                            search_date = datetime.now() - timedelta(days=days_back)
+                            if search_date.weekday() < 5:
+                                date_str = search_date.strftime("%Y-%m-%d")
+                                break
 
-                        # Candles are in reverse order: candles[0] = 15:29 (end), candles[-1] = 09:15 (start)
-                        first_candle = candles[-1]  # LAST element = first candle of day at 09:15
-                        print(f"[CANDLE] Day's FIRST candle (09:15): {first_candle}")
+                    candles_1min, err_1min = fetch_historical_candles(access_token, symbol_key, date_str)
 
-                        try:
-                            # Candle structure: [timestamp_str, open, high, low, close, volume, oi]
-                            timestamp = first_candle[0]
-                            opening_price = float(first_candle[1])  # Index 1 is always OPEN
+                    if candles_1min and isinstance(candles_1min, list) and len(candles_1min) > 0:
+                        print(f"[DEBUG] 1-MIN CANDLES: Got {len(candles_1min)} candles")
+                        print(f"[DEBUG] 1-MIN First (index [0]): {candles_1min[0]}")
+                        print(f"[DEBUG] 1-MIN Last (index [-1]): {candles_1min[-1]}")
+                        if len(candles_1min) > 1:
+                            print(f"[DEBUG] 1-MIN Second (index [1]): {candles_1min[1]}")
 
-                            print(f"[CANDLE] ✓✓ SUCCESS! Timestamp: {timestamp}, Opening price: {opening_price:.2f}")
-                        except (IndexError, ValueError, TypeError) as e:
-                            print(f"[CANDLE] ✗ Error extracting open: {e}")
-                            opening_price = spot
-                            print(f"[CANDLE] Fallback to spot: {spot:.2f}")
+                    print(f"[DEBUG] DAILY CANDLE: Opening price from daily: {opening_price:.2f}")
+                    print(f"[DEBUG] ===== END COMPARISON =====\n")
+
+                    if opening_price and opening_price > 0:
+                        print(f"[DEBUG] ✓✓ SUCCESS! Opening price (from daily): {opening_price:.2f}")
                     else:
                         opening_price = spot
-                        print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
+                        print(f"[DEBUG] ⚠️ Using spot: {spot:.2f}")
                 else:
                     # Market OPEN: Use underlying_open_price from chain (today's opening at 09:15)
                     if data:
