@@ -451,7 +451,7 @@ class RajProEngine:
             volatility=vol,
             call_erosion=cE,
             put_erosion=pE,
-            trend=self.confirmed_trend.upper(),
+            trend=core_trend,
             color=color,
             inst_signal="NEUTRAL",
             spike_signal=spike_signal,
