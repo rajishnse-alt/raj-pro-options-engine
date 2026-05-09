@@ -184,44 +184,44 @@ class RajProTable:
                 f"{self.signal.premiums.get('pe1', 0):.2f}",
                 f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
                 f"CE: {self.signal.ce_spike_score:.1f}",
-                f"SmartProb: 75%",
+                f"CE Ero: {self.signal.ce_erosions.get(1, 0):+.4f}",
                 f"{self.signal.volatility:.4f}",
                 "",
                 f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
-                ""
+                f"PE Ero: {self.signal.pe_erosions.get(1, 0):+.4f}"
             ],
             f"2-OTM\nCE:{ce2_strike}|PE:{pe2_strike}": [
                 f"{self.signal.premiums.get('ce2', 0):.2f}",
                 f"{self.signal.premiums.get('pe2', 0):.2f}",
                 f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
                 f"PE: {self.signal.pe_spike_score:.1f}",
-                "",
+                f"CE Ero: {self.signal.ce_erosions.get(2, 0):+.4f}",
                 f"{self.signal.trend}",
                 "",
                 f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}",
-                ""
+                f"PE Ero: {self.signal.pe_erosions.get(2, 0):+.4f}"
             ],
             f"3-OTM\nCE:{ce3_strike}|PE:{pe3_strike}": [
                 f"{self.signal.premiums.get('ce3', 0):.2f}",
                 f"{self.signal.premiums.get('pe3', 0):.2f}",
                 f"Δ{deltas['ce'].get(3, 0):.2f}{deltas['markers_ce'].get(3, '')}",
                 f"Edge: {abs(self.signal.score_diff):.2f}",
-                "",
+                f"CE Ero: {self.signal.ce_erosions.get(3, 0):+.4f}",
                 "",
                 "",
                 f"Δ{deltas['pe'].get(3, 0):.2f}{deltas['markers_pe'].get(3, '')}",
-                ""
+                f"PE Ero: {self.signal.pe_erosions.get(3, 0):+.4f}"
             ],
             f"4-OTM\nCE:{ce4_strike}|PE:{pe4_strike}": [
                 f"{self.signal.premiums.get('ce4', 0):.2f}",
                 f"{self.signal.premiums.get('pe4', 0):.2f}",
                 f"Δ{deltas['ce'].get(4, 0):.2f}{deltas['markers_ce'].get(4, '')}",
                 "",
-                "",
+                f"CE Ero: {self.signal.ce_erosions.get(4, 0):+.4f}",
                 "",
                 "",
                 f"Δ{deltas['pe'].get(4, 0):.2f}{deltas['markers_pe'].get(4, '')}",
-                ""
+                f"PE Ero: {self.signal.pe_erosions.get(4, 0):+.4f}"
             ],
             "Trend": [
                 self.signal.trend,
@@ -233,6 +233,39 @@ class RajProTable:
                 "⚠️ CONFLICT" if "CONFLICT" in self.signal.spike_signal else "",
                 "",
                 ""
+            ],
+            "Spike Confluence": [
+                self.signal.spike_signal,
+                "",
+                "",
+                f"CE: {self.signal.ce_spike_score:.1f}",
+                f"PE: {self.signal.pe_spike_score:.1f}",
+                f"Diff: {self.signal.score_diff:+.2f}",
+                "",
+                "",
+                ""
+            ],
+            "Δ Conflict": [
+                "🟢 BULLISH" if self.signal.color == "green" else "🔴 BEARISH" if self.signal.color == "red" else "🟡 NEUTRAL",
+                self.signal.inst_signal,
+                f"Reversal: {self.signal.reversal_count}",
+                f"Bull Bars: {self.signal.bull_bars}",
+                f"Bear Bars: {self.signal.bear_bars}",
+                f"DOM↑: {self.signal.dom_rising_count}",
+                "",
+                f"DOM↓: {self.signal.dom_falling_count}",
+                ""
+            ],
+            "Γ Zone (0.30-0.35)": [
+                "CE Zone",
+                "PE Zone",
+                f"Median: {self.signal.median:.2f}",
+                f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
+                f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
+                f"Δ{deltas['ce'].get(3, 0):.2f}{deltas['markers_ce'].get(3, '')}",
+                f"Δ{deltas['ce'].get(4, 0):.2f}{deltas['markers_ce'].get(4, '')}",
+                f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
+                f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}"
             ]
         }
 
