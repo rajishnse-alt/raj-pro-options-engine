@@ -760,28 +760,28 @@ def main():
 
             pcr_rows.append({
                 "Index": config["name"],
+                "PE2 (OTM Put)": f"{pe2}|{signal.pcr_pe2:.2f}",
+                "PE1 (OTM Put)": f"{pe1}|{signal.pcr_pe1:.2f}",
                 "ATM": f"{atm}|{signal.pcr:.2f}",
                 "CE1 (OTM Call)": f"{ce1}|{signal.pcr_ce1:.2f}",
                 "CE2 (OTM Call)": f"{ce2}|{signal.pcr_ce2:.2f}",
-                "PE1 (OTM Put)": f"{pe1}|{signal.pcr_pe1:.2f}",
-                "PE2 (OTM Put)": f"{pe2}|{signal.pcr_pe2:.2f}",
+                "_pe2_val": signal.pcr_pe2,
+                "_pe1_val": signal.pcr_pe1,
                 "_ce1_val": signal.pcr_ce1,
                 "_ce2_val": signal.pcr_ce2,
-                "_pe1_val": signal.pcr_pe1,
-                "_pe2_val": signal.pcr_pe2,
             })
         else:
             pcr_rows.append({
                 "Index": STRIKE_CONFIG[symbol_key]["name"],
+                "PE2 (OTM Put)": "—",
+                "PE1 (OTM Put)": "—",
                 "ATM": "—",
                 "CE1 (OTM Call)": "—",
                 "CE2 (OTM Call)": "—",
-                "PE1 (OTM Put)": "—",
-                "PE2 (OTM Put)": "—",
+                "_pe2_val": 0,
+                "_pe1_val": 0,
                 "_ce1_val": 0,
                 "_ce2_val": 0,
-                "_pe1_val": 0,
-                "_pe2_val": 0,
             })
 
     pcr_df = pd.DataFrame(pcr_rows)
