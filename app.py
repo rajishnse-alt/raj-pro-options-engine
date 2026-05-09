@@ -739,6 +739,7 @@ def main():
                         expiry_date=expiry,
                         atm_strike=atm,
                         strike_gap=config["gap"],
+                        opening_price=opening_price,
                     )
                     table.display_streamlit_table()
 

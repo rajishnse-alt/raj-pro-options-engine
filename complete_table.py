@@ -20,10 +20,11 @@ def norm_cdf(x):
 class RajProTable:
     """Generate complete Raj Pro table matching Pine Script exactly"""
 
-    def __init__(self, signal, spot, config, expiry_date, atm_strike, strike_gap):
+    def __init__(self, signal, spot, config, expiry_date, atm_strike, strike_gap, opening_price=None):
         """Initialize table with all required data"""
         self.signal = signal
         self.spot = spot
+        self.opening_price = opening_price if opening_price else spot
         self.config = config
         self.expiry_date = expiry_date
         self.atm = atm_strike
@@ -143,10 +144,10 @@ class RajProTable:
         else:
             gamma_status = "FAR OTM - LOW"
 
-        # Build table rows
+        # Build table rows with strikes inline in column headers
         table_data = {
             "ATM/Open": [
-                f"₹{self.spot:.0f}",
+                f"₹{self.opening_price:.0f}",
                 f"Gap: {self.gap}",
                 f"Δ (IV={self.sigma*100:.1f}%)",
                 "",
@@ -178,7 +179,7 @@ class RajProTable:
                 "0.30-0.35",
                 "Sell premium decay"
             ],
-            "1-OTM": [
+            f"1-OTM\nCE:{ce1_strike}|PE:{pe1_strike}": [
                 f"{self.signal.premiums.get('ce1', 0):.2f}",
                 f"{self.signal.premiums.get('pe1', 0):.2f}",
                 f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
@@ -189,7 +190,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
                 ""
             ],
-            "2-OTM": [
+            f"2-OTM\nCE:{ce2_strike}|PE:{pe2_strike}": [
                 f"{self.signal.premiums.get('ce2', 0):.2f}",
                 f"{self.signal.premiums.get('pe2', 0):.2f}",
                 f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
@@ -200,7 +201,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}",
                 ""
             ],
-            "3-OTM": [
+            f"3-OTM\nCE:{ce3_strike}|PE:{pe3_strike}": [
                 f"{self.signal.premiums.get('ce3', 0):.2f}",
                 f"{self.signal.premiums.get('pe3', 0):.2f}",
                 f"Δ{deltas['ce'].get(3, 0):.2f}{deltas['markers_ce'].get(3, '')}",
@@ -211,7 +212,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(3, 0):.2f}{deltas['markers_pe'].get(3, '')}",
                 ""
             ],
-            "4-OTM": [
+            f"4-OTM\nCE:{ce4_strike}|PE:{pe4_strike}": [
                 f"{self.signal.premiums.get('ce4', 0):.2f}",
                 f"{self.signal.premiums.get('pe4', 0):.2f}",
                 f"Δ{deltas['ce'].get(4, 0):.2f}{deltas['markers_ce'].get(4, '')}",
@@ -240,9 +241,4 @@ class RajProTable:
 
         # Display with Streamlit
         st.markdown("### 📊 Complete Options Analysis Table")
-
-        # Display strike header row with pipe separators
-        strikes_header = f"**Selected Strikes:**  1-OTM | CE {ce1_strike} | PE {pe1_strike}  |  2-OTM | CE {ce2_strike} | PE {pe2_strike}  |  3-OTM | CE {ce3_strike} | PE {pe3_strike}  |  4-OTM | CE {ce4_strike} | PE {pe4_strike}"
-        st.markdown(strikes_header)
-
         st.dataframe(df, width='stretch', hide_index=True)
