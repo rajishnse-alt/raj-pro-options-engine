@@ -654,37 +654,63 @@ def main():
             pass
 
         if symbol_key in all_signals and all_signals[symbol_key]:
-            signal, spot, config, expiry, opening_price = all_signals[symbol_key]
+            try:
+                signal, spot, config, expiry, opening_price = all_signals[symbol_key]
 
-            signal_emoji = "🟢" if signal.color == "green" else "🔴" if signal.color == "red" else "🟡"
+                signal_emoji = "🟢" if signal.color == "green" else "🔴" if signal.color == "red" else "🟡"
 
-            # Build premium display
-            ce1 = f"{signal.premiums.get('ce1', 0):.2f}" if signal.premiums.get('ce1', 0) > 0 else "—"
-            ce2 = f"{signal.premiums.get('ce2', 0):.2f}" if signal.premiums.get('ce2', 0) > 0 else "—"
-            ce3 = f"{signal.premiums.get('ce3', 0):.2f}" if signal.premiums.get('ce3', 0) > 0 else "—"
-            ce4 = f"{signal.premiums.get('ce4', 0):.2f}" if signal.premiums.get('ce4', 0) > 0 else "—"
-            pe1 = f"{signal.premiums.get('pe1', 0):.2f}" if signal.premiums.get('pe1', 0) > 0 else "—"
-            pe2 = f"{signal.premiums.get('pe2', 0):.2f}" if signal.premiums.get('pe2', 0) > 0 else "—"
-            pe3 = f"{signal.premiums.get('pe3', 0):.2f}" if signal.premiums.get('pe3', 0) > 0 else "—"
-            pe4 = f"{signal.premiums.get('pe4', 0):.2f}" if signal.premiums.get('pe4', 0) > 0 else "—"
+                # Build premium display
+                ce1 = f"{signal.premiums.get('ce1', 0):.2f}" if signal.premiums.get('ce1', 0) > 0 else "—"
+                ce2 = f"{signal.premiums.get('ce2', 0):.2f}" if signal.premiums.get('ce2', 0) > 0 else "—"
+                ce3 = f"{signal.premiums.get('ce3', 0):.2f}" if signal.premiums.get('ce3', 0) > 0 else "—"
+                ce4 = f"{signal.premiums.get('ce4', 0):.2f}" if signal.premiums.get('ce4', 0) > 0 else "—"
+                pe1 = f"{signal.premiums.get('pe1', 0):.2f}" if signal.premiums.get('pe1', 0) > 0 else "—"
+                pe2 = f"{signal.premiums.get('pe2', 0):.2f}" if signal.premiums.get('pe2', 0) > 0 else "—"
+                pe3 = f"{signal.premiums.get('pe3', 0):.2f}" if signal.premiums.get('pe3', 0) > 0 else "—"
+                pe4 = f"{signal.premiums.get('pe4', 0):.2f}" if signal.premiums.get('pe4', 0) > 0 else "—"
 
-            table_rows.append({
-                "Index": config["name"],
-                "Signal": f"{signal_emoji} {signal.name}",
-                "Confidence": f"{signal.confidence:.0%}",
-                "Dominance": f"{signal.dominance:+.4f}",
-                "Momentum": f"{signal.momentum:+.4f}",
-                "Volatility": f"{signal.volatility:.4f}",
-                "Trend": signal.trend,
-                "Spot": f"(ATM:{signal.atm_strike}|PCR:{signal.pcr:.2f}) ₹{spot:,.2f}",
-                "CE Ero.": f"{signal.call_erosion:+.4f}",
-                "PE Ero.": f"{signal.put_erosion:+.4f}",
-                "Gamma Score": f"{signal.gamma_score:.1f}",
-                "Spike Signal": signal.spike_signal,
-                "Inst Signal": signal.inst_signal,
-                "Bull Bars": signal.bull_bars,
-                "Bear Bars": signal.bear_bars,
-            })
+                # Safe access to atm_strike and pcr with fallback
+                atm_str = getattr(signal, 'atm_strike', 'N/A')
+                pcr_val = getattr(signal, 'pcr', 0.0)
+                spot_display = f"(ATM:{atm_str}|PCR:{pcr_val:.2f})" if atm_str != 'N/A' else f"₹{spot:,.2f}"
+
+                table_rows.append({
+                    "Index": config["name"],
+                    "Signal": f"{signal_emoji} {signal.name}",
+                    "Confidence": f"{signal.confidence:.0%}",
+                    "Dominance": f"{signal.dominance:+.4f}",
+                    "Momentum": f"{signal.momentum:+.4f}",
+                    "Volatility": f"{signal.volatility:.4f}",
+                    "Trend": signal.trend,
+                    "Spot": f"{spot_display} ₹{spot:,.2f}" if atm_str != 'N/A' else spot_display,
+                    "CE Ero.": f"{signal.call_erosion:+.4f}",
+                    "PE Ero.": f"{signal.put_erosion:+.4f}",
+                    "Gamma Score": f"{signal.gamma_score:.1f}",
+                    "Spike Signal": signal.spike_signal,
+                    "Inst Signal": signal.inst_signal,
+                    "Bull Bars": signal.bull_bars,
+                    "Bear Bars": signal.bear_bars,
+                })
+            except Exception as e:
+                print(f"[ERROR] Table row build failed for {symbol_key}: {str(e)}")
+                print(f"[ERROR] Signal attributes: {dir(signal) if 'signal' in locals() else 'N/A'}")
+                table_rows.append({
+                    "Index": config["name"] if 'config' in locals() else symbol_key,
+                    "Signal": "ERROR",
+                    "Confidence": "—",
+                    "Dominance": "—",
+                    "Momentum": "—",
+                    "Volatility": "—",
+                    "Trend": "—",
+                    "Spot": f"Error: {str(e)}",
+                    "CE Ero.": "—",
+                    "PE Ero.": "—",
+                    "Gamma Score": "—",
+                    "Spike Signal": "—",
+                    "Inst Signal": "—",
+                    "Bull Bars": "—",
+                    "Bear Bars": "—",
+                })
         else:
             table_rows.append({
                 "Index": STRIKE_CONFIG[symbol_key]["name"],
