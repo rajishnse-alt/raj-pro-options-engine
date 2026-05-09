@@ -449,7 +449,7 @@ class RajProEngine:
         color = "green" if "UP" in signal_name else "red" if "DN" in signal_name else "gray"
 
         # Calculate PCR for ATM strike
-        pcr = self._calculate_pcr(chain_dict, atm)
+        pcr = self._calculate_pcr(chain_dict, atm_strike)
 
         return Signal(
             name=signal_name,
@@ -479,7 +479,7 @@ class RajProEngine:
                 'pe1': pe1N or 0, 'pe2': pe2N or 0, 'pe3': pe3N or 0, 'pe4': pe4N or 0,
             },
             median=median / 1000.0,  # Pine Script plots med / 1000
-            atm_strike=atm,
+            atm_strike=atm_strike,
             pcr=pcr
         )
 

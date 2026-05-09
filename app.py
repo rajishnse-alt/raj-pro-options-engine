@@ -669,11 +669,6 @@ def main():
                 pe3 = f"{signal.premiums.get('pe3', 0):.2f}" if signal.premiums.get('pe3', 0) > 0 else "—"
                 pe4 = f"{signal.premiums.get('pe4', 0):.2f}" if signal.premiums.get('pe4', 0) > 0 else "—"
 
-                # Safe access to atm_strike and pcr with fallback
-                atm_str = getattr(signal, 'atm_strike', 'N/A')
-                pcr_val = getattr(signal, 'pcr', 0.0)
-                spot_display = f"(ATM:{atm_str}|PCR:{pcr_val:.2f})" if atm_str != 'N/A' else f"₹{spot:,.2f}"
-
                 table_rows.append({
                     "Index": config["name"],
                     "Signal": f"{signal_emoji} {signal.name}",
@@ -682,7 +677,7 @@ def main():
                     "Momentum": f"{signal.momentum:+.4f}",
                     "Volatility": f"{signal.volatility:.4f}",
                     "Trend": signal.trend,
-                    "Spot": f"{spot_display} ₹{spot:,.2f}" if atm_str != 'N/A' else spot_display,
+                    "Spot": f"(ATM:{signal.atm_strike}|PCR:{signal.pcr:.2f}) ₹{spot:,.2f}",
                     "CE Ero.": f"{signal.call_erosion:+.4f}",
                     "PE Ero.": f"{signal.put_erosion:+.4f}",
                     "Gamma Score": f"{signal.gamma_score:.1f}",
