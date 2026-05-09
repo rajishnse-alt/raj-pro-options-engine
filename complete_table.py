@@ -125,6 +125,16 @@ class RajProTable:
         """Display complete table as a grid matching Pine Script"""
         deltas = self.calculate_all_deltas()
 
+        # Calculate actual strike prices
+        ce1_strike = self.atm + self.gap
+        ce2_strike = self.atm + 2 * self.gap
+        ce3_strike = self.atm + 3 * self.gap
+        ce4_strike = self.atm + 4 * self.gap
+        pe1_strike = self.atm - self.gap
+        pe2_strike = self.atm - 2 * self.gap
+        pe3_strike = self.atm - 3 * self.gap
+        pe4_strike = self.atm - 4 * self.gap
+
         # Determine gamma status
         if self.signal.gamma_score > 70:
             gamma_status = "NEAR ATM - HIGH"
@@ -146,11 +156,11 @@ class RajProTable:
                 f"🔻G Zone",
                 f"Legend"
             ],
-            "Type": [
-                "CE",
-                "PE",
-                "CE Δ",
-                "Spike Confluence",
+            "Type | CE Strike | PE Strike": [
+                f"CE | {ce1_strike} | {pe1_strike}",
+                f"PE | {ce2_strike} | {pe2_strike}",
+                f"CE Δ | {ce3_strike} | {pe3_strike}",
+                f"Spike | {ce4_strike} | {pe4_strike}",
                 f"{self.signal.gamma_score:.1f}",
                 f"{self.signal.dominance:+.4f}",
                 "",
@@ -230,4 +240,4 @@ class RajProTable:
 
         # Display with Streamlit
         st.markdown("### 📊 Complete Options Analysis Table")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
