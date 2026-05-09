@@ -460,11 +460,13 @@ def main():
 
                     if candles and isinstance(candles, list) and len(candles) > 0:
                         # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
+                        # Upstox returns candles in REVERSE order (newest first), so get LAST element
                         # Upstox format: [timestamp, open, high, low, close, volume, oi]
                         print(f"[CANDLE] ✓ Fetched {len(candles)} 1-minute candles for {symbol_key}")
 
-                        first_candle = candles[0]
-                        print(f"[CANDLE] First candle: {first_candle}")
+                        # Candles are in reverse order: candles[0] = 15:29 (end), candles[-1] = 09:15 (start)
+                        first_candle = candles[-1]  # LAST element = first candle of day at 09:15
+                        print(f"[CANDLE] Day's FIRST candle (09:15): {first_candle}")
 
                         try:
                             # Candle structure: [timestamp_str, open, high, low, close, volume, oi]
