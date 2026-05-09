@@ -185,10 +185,10 @@ class RajProTable:
                 f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
                 f"CE: {self.signal.ce_spike_score:.1f}",
                 f"CE Ero: {self.signal.ce_erosions.get(1, 0):+.4f}",
-                f"{self.signal.volatility:.4f}",
+                f"CE1 PCR: {self.signal.pcr_ce1:.2f}",
                 "",
                 f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
-                f"PE Ero: {self.signal.pe_erosions.get(1, 0):+.4f}"
+                f"PE1 PCR: {self.signal.pcr_pe1:.2f}"
             ],
             f"2-OTM\nCE:{ce2_strike}|PE:{pe2_strike}": [
                 f"{self.signal.premiums.get('ce2', 0):.2f}",
@@ -196,10 +196,10 @@ class RajProTable:
                 f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
                 f"PE: {self.signal.pe_spike_score:.1f}",
                 f"CE Ero: {self.signal.ce_erosions.get(2, 0):+.4f}",
-                f"{self.signal.trend}",
+                f"CE2 PCR: {self.signal.pcr_ce2:.2f}",
                 "",
                 f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}",
-                f"PE Ero: {self.signal.pe_erosions.get(2, 0):+.4f}"
+                f"PE2 PCR: {self.signal.pcr_pe2:.2f}"
             ],
             f"3-OTM\nCE:{ce3_strike}|PE:{pe3_strike}": [
                 f"{self.signal.premiums.get('ce3', 0):.2f}",

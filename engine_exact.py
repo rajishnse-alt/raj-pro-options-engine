@@ -40,6 +40,10 @@ class Signal:
     median: float
     atm_strike: int
     pcr: float
+    pcr_ce1: float  # PCR at CE1 (ATM + gap)
+    pcr_ce2: float  # PCR at CE2 (ATM + 2*gap)
+    pcr_pe1: float  # PCR at PE1 (ATM - gap)
+    pcr_pe2: float  # PCR at PE2 (ATM - 2*gap)
 
 
 def norm_cdf(x):
@@ -448,8 +452,12 @@ class RajProEngine:
         confidence = 0.9 if "CONFIRMED" in signal_name else 0.7 if "BUILDING" in signal_name else 0.3
         color = "green" if "UP" in signal_name else "red" if "DN" in signal_name else "gray"
 
-        # Calculate PCR for ATM strike
+        # Calculate PCR for ATM and all OTM strikes (CE: +gap, +2*gap | PE: -gap, -2*gap)
         pcr = self._calculate_pcr(chain_dict, atm_strike)
+        pcr_ce1 = self._calculate_pcr(chain_dict, atm_strike + sGap)      # CE1: ATM + gap (OTM)
+        pcr_ce2 = self._calculate_pcr(chain_dict, atm_strike + 2 * sGap)  # CE2: ATM + 2*gap (OTM)
+        pcr_pe1 = self._calculate_pcr(chain_dict, atm_strike - sGap)      # PE1: ATM - gap (OTM)
+        pcr_pe2 = self._calculate_pcr(chain_dict, atm_strike - 2 * sGap)  # PE2: ATM - 2*gap (OTM)
 
         return Signal(
             name=signal_name,
@@ -480,7 +488,11 @@ class RajProEngine:
             },
             median=median / 1000.0,  # Pine Script plots med / 1000
             atm_strike=atm_strike,
-            pcr=pcr
+            pcr=pcr,
+            pcr_ce1=pcr_ce1,
+            pcr_ce2=pcr_ce2,
+            pcr_pe1=pcr_pe1,
+            pcr_pe2=pcr_pe2
         )
 
     def _get_premium(self, chain_dict: Dict, strike: int, opt_type: str) -> float:
@@ -580,22 +592,22 @@ class RajProEngine:
             if atm_strike in chain_dict:
                 row = chain_dict[atm_strike]
 
-                # Get CE open interest
+                # Get CE open interest (API field is "oi" not "open_interest")
                 ce_data = row.get("call_options") or {}
                 ce_market = ce_data.get("market_data") or {}
-                ce_oi = float(ce_market.get("open_interest") or 0)
+                ce_oi = float(ce_market.get("oi") or 0)
 
                 # Get PE open interest
                 pe_data = row.get("put_options") or {}
                 pe_market = pe_data.get("market_data") or {}
-                pe_oi = float(pe_market.get("open_interest") or 0)
+                pe_oi = float(pe_market.get("oi") or 0)
 
             if ce_oi > 0:
                 pcr = pe_oi / ce_oi
                 print(f"[DEBUG] PCR at ATM {atm_strike}: PE_OI={pe_oi:.0f} / CE_OI={ce_oi:.0f} = {pcr:.2f}")
                 return pcr
             else:
-                print(f"[DEBUG] PCR: No CE open interest at ATM {atm_strike}")
+                print(f"[DEBUG] PCR: No CE open interest at ATM {atm_strike}, CE_OI={ce_oi:.0f}, PE_OI={pe_oi:.0f}")
                 return 0.0
         except Exception as e:
             print(f"[DEBUG] PCR calculation error: {str(e)}")
