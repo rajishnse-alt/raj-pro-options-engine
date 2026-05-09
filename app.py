@@ -7,7 +7,7 @@ import streamlit as st
 import requests
 import time
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import sys
 from io import StringIO
@@ -293,8 +293,6 @@ def fetch_last_traded_day_opening(token: str, symbol: str, max_days_back: int = 
     Returns:
         (opening_price, traded_date_str, error_message)
     """
-    from datetime import datetime, timedelta
-
     today = datetime.now()
 
     # Search backwards for last traded day
@@ -503,7 +501,6 @@ def main():
 
                     # ALSO fetch 1-minute candles for comparison/debugging
                     print(f"\n[DEBUG] ===== COMPARISON: 1-MIN vs DAILY CANDLE =====")
-                    from datetime import datetime, timedelta
                     search_date = datetime.now() - timedelta(days=1)
                     date_str = search_date.strftime("%Y-%m-%d")
                     if search_date.weekday() >= 5:  # If weekend, go back further
