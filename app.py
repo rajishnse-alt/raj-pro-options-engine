@@ -232,6 +232,42 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
         print(f"[ERROR] Historical candles fetch failed: {e}")
         return None, str(e)
 
+def fetch_last_traded_day_candles(token: str, symbol: str, max_days_back: int = 10) -> tuple:
+    """Find the LAST TRADED DAY and fetch its 1-minute candles
+    Goes back up to max_days_back looking for a day with trading data
+
+    Args:
+        token: API access token
+        symbol: NIFTY, BANKNIFTY, etc.
+        max_days_back: Maximum days to search back (default 10)
+
+    Returns:
+        (candles_data, traded_date_str, error_message)
+    """
+    from datetime import datetime, timedelta
+
+    today = datetime.now()
+
+    # Search backwards for last traded day
+    for days_back in range(1, max_days_back + 1):
+        search_date = today - timedelta(days=days_back)
+        date_str = search_date.strftime("%Y-%m-%d")
+
+        # Skip weekends (Saturday=5, Sunday=6)
+        if search_date.weekday() >= 5:
+            print(f"[DEBUG] {date_str} is weekend, skipping")
+            continue
+
+        candles, error = fetch_historical_candles(token, symbol, date_str)
+
+        if candles and len(candles) > 0:
+            print(f"[DEBUG] ✓ Found last traded day: {date_str} with {len(candles)} candles")
+            return candles, date_str, None
+
+        print(f"[DEBUG] No candles on {date_str}, searching further back...")
+
+    return None, None, f"No traded day found in last {max_days_back} days"
+
 # ─────────────────────────────────────────────
 # MAIN APP
 # ─────────────────────────────────────────────
@@ -407,9 +443,11 @@ def main():
                 )
 
                 if not is_market_open:
-                    # Market CLOSED: Fetch 1-minute candles for today
-                    today_str = datetime.now().strftime("%Y-%m-%d")
-                    candles, candle_err = fetch_historical_candles(access_token, symbol_key, today_str)
+                    # Market CLOSED: Find LAST TRADED DAY and get its opening price
+                    print(f"[DEBUG] Market closed, finding last traded day...")
+                    candles, traded_date, candle_err = fetch_last_traded_day_candles(access_token, symbol_key)
+                    if traded_date:
+                        print(f"[DEBUG] Using last traded day: {traded_date}")
 
                     if candles and len(candles) > 0:
                         # Get opening price from FIRST candle (market open at 09:15)
