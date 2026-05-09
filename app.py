@@ -492,15 +492,9 @@ def main():
                 )
 
                 if not is_market_open:
-                    # Market CLOSED: Find LAST TRADED DAY and get its opening price
-                    print(f"[DEBUG] Market closed, finding last traded day's opening price...")
-                    opening_price, traded_date, candle_err = fetch_last_traded_day_opening(access_token, symbol_key)
+                    # Market CLOSED: Get opening price from FIRST 1-MINUTE CANDLE (09:15 market open)
+                    print(f"[DEBUG] Market closed, fetching first 1-minute candle (09:15 market open)...")
 
-                    if traded_date:
-                        print(f"[DEBUG] ✓ Using last traded day: {traded_date}")
-
-                    # ALSO fetch 1-minute candles for comparison/debugging
-                    print(f"\n[DEBUG] ===== COMPARISON: 1-MIN vs DAILY CANDLE =====")
                     search_date = datetime.now() - timedelta(days=1)
                     date_str = search_date.strftime("%Y-%m-%d")
                     if search_date.weekday() >= 5:  # If weekend, go back further
@@ -510,20 +504,33 @@ def main():
                                 date_str = search_date.strftime("%Y-%m-%d")
                                 break
 
+                    # Fetch 1-minute candles for last traded day
                     candles_1min, err_1min = fetch_historical_candles(access_token, symbol_key, date_str)
 
+                    opening_price_1min = None
                     if candles_1min and isinstance(candles_1min, list) and len(candles_1min) > 0:
-                        print(f"[DEBUG] 1-MIN CANDLES: Got {len(candles_1min)} candles")
-                        print(f"[DEBUG] 1-MIN First (index [0]): {candles_1min[0]}")
-                        print(f"[DEBUG] 1-MIN Last (index [-1]): {candles_1min[-1]}")
-                        if len(candles_1min) > 1:
-                            print(f"[DEBUG] 1-MIN Second (index [1]): {candles_1min[1]}")
+                        # Candles are in REVERSE chronological order: [0]=latest (15:30), [-1]=first (09:15)
+                        first_candle = candles_1min[-1]  # Get the 09:15 (market open) candle
+                        if isinstance(first_candle, list) and len(first_candle) >= 2:
+                            opening_price_1min = float(first_candle[1])  # Index [1] = OPEN price
+                            print(f"[DEBUG] ✓ First 1-min candle (09:15): {first_candle[0]}")
+                            print(f"[DEBUG] ✓ Opening from 1-MIN: {opening_price_1min:.2f}")
+                        elif isinstance(first_candle, dict) and "open" in first_candle:
+                            opening_price_1min = float(first_candle.get("open", 0))
+                            print(f"[DEBUG] ✓ Opening from 1-MIN (dict): {opening_price_1min:.2f}")
 
-                    print(f"[DEBUG] DAILY CANDLE: Opening price from daily: {opening_price:.2f}")
-                    print(f"[DEBUG] ===== END COMPARISON =====\n")
+                    # Fallback: Also fetch daily candle as backup
+                    if not opening_price_1min:
+                        print(f"[DEBUG] 1-MIN candles not available, trying daily candle...")
+                        opening_price_daily, traded_date, candle_err = fetch_last_traded_day_opening(access_token, symbol_key)
+                        if opening_price_daily:
+                            opening_price_1min = opening_price_daily
+                            print(f"[DEBUG] ✓ Opening from DAILY: {opening_price_daily:.2f}")
+
+                    opening_price = opening_price_1min if opening_price_1min else spot
 
                     if opening_price and opening_price > 0:
-                        print(f"[DEBUG] ✓✓ SUCCESS! Opening price (from daily): {opening_price:.2f}")
+                        print(f"[DEBUG] ✓✓ SUCCESS! Opening price (from 1-min): {opening_price:.2f}")
                     else:
                         opening_price = spot
                         print(f"[DEBUG] ⚠️ Using spot: {spot:.2f}")
