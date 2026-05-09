@@ -676,7 +676,7 @@ def main():
                 "Momentum": f"{signal.momentum:+.4f}",
                 "Volatility": f"{signal.volatility:.4f}",
                 "Trend": signal.trend,
-                "Spot": f"({signal.atm_strike}|{signal.pcr:.2f})",
+                "Spot": f"(ATM:{signal.atm_strike}|PCR:{signal.pcr:.2f}) ₹{spot:,.2f}",
                 "CE Ero.": f"{signal.call_erosion:+.4f}",
                 "PE Ero.": f"{signal.put_erosion:+.4f}",
                 "Gamma Score": f"{signal.gamma_score:.1f}",
