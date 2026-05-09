@@ -669,12 +669,12 @@ def main():
                 pe3 = f"{signal.premiums.get('pe3', 0):.2f}" if signal.premiums.get('pe3', 0) > 0 else "—"
                 pe4 = f"{signal.premiums.get('pe4', 0):.2f}" if signal.premiums.get('pe4', 0) > 0 else "—"
 
-                # Calculate strike values for PCR display
+                # Calculate strike values for summary display (use current_atm based on live price)
                 gap = config["gap"]
-                ce1_strike = signal.atm_strike + gap
-                ce2_strike = signal.atm_strike + 2 * gap
-                pe1_strike = signal.atm_strike - gap
-                pe2_strike = signal.atm_strike - 2 * gap
+                ce1_strike = signal.current_atm + gap
+                ce2_strike = signal.current_atm + 2 * gap
+                pe1_strike = signal.current_atm - gap
+                pe2_strike = signal.current_atm - 2 * gap
 
                 table_rows.append({
                     "Index": config["name"],
@@ -684,7 +684,7 @@ def main():
                     "Momentum": f"{signal.momentum:+.4f}",
                     "Volatility": f"{signal.volatility:.4f}",
                     "Trend": signal.trend,
-                    "Spot": f"({signal.atm_strike}|{signal.pcr:.2f}) ₹{spot:,.2f}",
+                    "Spot": f"({signal.current_atm}|{signal.pcr:.2f}) ₹{spot:,.2f}",
                     "CE Ero.": f"{signal.call_erosion:+.4f}",
                     "PE Ero.": f"{signal.put_erosion:+.4f}",
                     "Gamma Score": f"{signal.gamma_score:.1f}",
@@ -751,8 +751,8 @@ def main():
             signal, spot, config, expiry, opening_price = all_signals[symbol_key]
             gap = config["gap"]
 
-            # Calculate strike values
-            atm = signal.atm_strike
+            # Calculate strike values based on CURRENT ATM (live spot price)
+            atm = signal.current_atm
             ce1 = atm + gap
             ce2 = atm + 2 * gap
             pe1 = atm - gap

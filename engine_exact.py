@@ -38,7 +38,8 @@ class Signal:
     pe_erosions: Dict[int, float]
     premiums: Dict[str, float]
     median: float
-    atm_strike: int
+    atm_strike: int  # ATM based on opening price
+    current_atm: int  # ATM based on current spot price (for live PCR)
     pcr: float
     pcr_ce1: float  # PCR at CE1 (ATM + gap)
     pcr_ce2: float  # PCR at CE2 (ATM + 2*gap)
@@ -176,6 +177,9 @@ class RajProEngine:
         # Uses opening price first, then current price
         _base = opening_price if opening_price > 0 else underlying_price
         atm_strike = int(sGap * round(_base / sGap))
+
+        # Current ATM - Based on live spot price (for PCR calculation)
+        current_atm = int(sGap * round(underlying_price / sGap))
 
         # ATM Open - For opening-based ATM
         atm_O = int(sGap * round(opening_price / sGap)) if opening_price > 0 else atm_strike
@@ -452,12 +456,12 @@ class RajProEngine:
         confidence = 0.9 if "CONFIRMED" in signal_name else 0.7 if "BUILDING" in signal_name else 0.3
         color = "green" if "UP" in signal_name else "red" if "DN" in signal_name else "gray"
 
-        # Calculate PCR for ATM and all OTM strikes (CE: +gap, +2*gap | PE: -gap, -2*gap)
-        pcr = self._calculate_pcr(chain_dict, atm_strike)
-        pcr_ce1 = self._calculate_pcr(chain_dict, atm_strike + sGap)      # CE1: ATM + gap (OTM)
-        pcr_ce2 = self._calculate_pcr(chain_dict, atm_strike + 2 * sGap)  # CE2: ATM + 2*gap (OTM)
-        pcr_pe1 = self._calculate_pcr(chain_dict, atm_strike - sGap)      # PE1: ATM - gap (OTM)
-        pcr_pe2 = self._calculate_pcr(chain_dict, atm_strike - 2 * sGap)  # PE2: ATM - 2*gap (OTM)
+        # Calculate PCR for current ATM (based on live spot price) and all OTM strikes
+        pcr = self._calculate_pcr(chain_dict, current_atm)
+        pcr_ce1 = self._calculate_pcr(chain_dict, current_atm + sGap)      # CE1: Current ATM + gap (OTM)
+        pcr_ce2 = self._calculate_pcr(chain_dict, current_atm + 2 * sGap)  # CE2: Current ATM + 2*gap (OTM)
+        pcr_pe1 = self._calculate_pcr(chain_dict, current_atm - sGap)      # PE1: Current ATM - gap (OTM)
+        pcr_pe2 = self._calculate_pcr(chain_dict, current_atm - 2 * sGap)  # PE2: Current ATM - 2*gap (OTM)
 
         return Signal(
             name=signal_name,
@@ -488,6 +492,7 @@ class RajProEngine:
             },
             median=median / 1000.0,  # Pine Script plots med / 1000
             atm_strike=atm_strike,
+            current_atm=current_atm,
             pcr=pcr,
             pcr_ce1=pcr_ce1,
             pcr_ce2=pcr_ce2,
