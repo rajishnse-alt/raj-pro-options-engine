@@ -202,7 +202,7 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
     """
     try:
         instrument_key = INSTRUMENT_KEY[symbol]
-        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/minute/{date_str}/{date_str}"
+        url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/1minute/{date_str}/{date_str}"
 
         print(f"[DEBUG] Fetching 1-minute candles: {url}")
 
