@@ -223,23 +223,16 @@ def fetch_historical_candles(token: str, symbol: str, date_str: str) -> tuple:
         d = r.json()
 
         if d.get("status") == "success" and d.get("data"):
-            data = d["data"]
+            # Upstox API structure: {"status": "success", "data": {"candles": [...]}}
+            candles = d.get("data", {}).get("candles", [])
 
-            # Handle nested structure: data might be {"candles": [...]} or just [...]
-            if isinstance(data, dict) and "candles" in data:
-                candles = data["candles"]
-            elif isinstance(data, list):
-                candles = data
-            else:
-                print(f"[ERROR] Unexpected data structure: {type(data)}")
-                return None, f"Unexpected data structure: {type(data)}"
-
-            if candles and len(candles) > 0:
-                print(f"[DEBUG] Got {len(candles)} candles for {symbol} on {date_str}")
+            if isinstance(candles, list) and len(candles) > 0:
+                print(f"[DEBUG] ✓ Got {len(candles)} candles for {symbol} on {date_str}")
                 print(f"[DEBUG] First candle: {candles[0]}")
                 return candles, None
             else:
-                return None, f"No candles in data"
+                print(f"[ERROR] Invalid candles structure: type={type(candles)}, len={len(candles) if isinstance(candles, list) else 'N/A'}")
+                return None, f"No candles in response"
 
         return None, f"Failed: {d}"
     except Exception as e:
@@ -467,38 +460,25 @@ def main():
 
                     if candles and isinstance(candles, list) and len(candles) > 0:
                         # Get opening price from FIRST 1-minute candle of the day (market open at 09:15)
-                        print(f"[CANDLE] Total candles fetched: {len(candles)}")
+                        # Upstox format: [timestamp, open, high, low, close, volume, oi]
+                        print(f"[CANDLE] ✓ Fetched {len(candles)} 1-minute candles for {symbol}")
 
                         first_candle = candles[0]
-                        print(f"[CANDLE] First candle type: {type(first_candle)}, value: {first_candle}")
+                        print(f"[CANDLE] First candle: {first_candle}")
 
-                        opening_price = 0
-
-                        # Try to extract open price - it should be 24233.65 for May 8th
                         try:
-                            # Check if it's a list [timestamp, open, high, low, close, volume, oi]
-                            if isinstance(first_candle, list) and len(first_candle) >= 2:
-                                opening_price = float(first_candle[1])
-                                print(f"[CANDLE] ✓ List format - extracted open from index [1]: {opening_price:.2f}")
-                            # Check if it's a dict
-                            elif isinstance(first_candle, dict):
-                                opening_price = float(first_candle.get("open", 0))
-                                print(f"[CANDLE] ✓ Dict format - extracted open: {opening_price:.2f}")
-                            else:
-                                print(f"[CANDLE] ✗ Unknown format: {type(first_candle)}")
-                        except Exception as e:
-                            print(f"[CANDLE] ✗ Error extracting open: {e}")
-                            import traceback
-                            traceback.print_exc()
+                            # Candle structure: [timestamp_str, open, high, low, close, volume, oi]
+                            timestamp = first_candle[0]
+                            opening_price = float(first_candle[1])  # Index 1 is always OPEN
 
-                        if opening_price > 0:
-                            print(f"[CANDLE] ✓✓ SUCCESS! Opening price: {opening_price:.2f}")
-                        else:
+                            print(f"[CANDLE] ✓✓ SUCCESS! Timestamp: {timestamp}, Opening price: {opening_price:.2f}")
+                        except (IndexError, ValueError, TypeError) as e:
+                            print(f"[CANDLE] ✗ Error extracting open: {e}")
                             opening_price = spot
-                            print(f"[CANDLE] ✗✗ FAILED! Using spot: {spot:.2f}")
+                            print(f"[CANDLE] Fallback to spot: {spot:.2f}")
                     else:
                         opening_price = spot
-                        print(f"[DEBUG] ⚠️ No valid candle data (type={type(candles)}, len={len(candles) if isinstance(candles, list) else 'N/A'}), using spot: {spot:.2f}")
+                        print(f"[DEBUG] ⚠️ No candle data, using spot: {spot:.2f}")
                 else:
                     # Market OPEN: Use underlying_open_price from chain (today's opening at 09:15)
                     if data:
