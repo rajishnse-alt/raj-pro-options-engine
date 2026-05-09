@@ -777,7 +777,7 @@ def main():
                     return 0.5
 
             # Calculate days left and IV for delta calc
-            from datetime import datetime
+            
             try:
                 expiry = datetime.strptime(expiry, "%Y-%m-%d")
                 days_left = max((expiry - datetime.now()).total_seconds() / 86400.0, 0.5)
