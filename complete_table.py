@@ -156,11 +156,11 @@ class RajProTable:
                 f"🔻G Zone",
                 f"Legend"
             ],
-            "Type | CE Strike | PE Strike": [
-                f"CE | {ce1_strike} | {pe1_strike}",
-                f"PE | {ce2_strike} | {pe2_strike}",
-                f"CE Δ | {ce3_strike} | {pe3_strike}",
-                f"Spike | {ce4_strike} | {pe4_strike}",
+            "Type": [
+                "CE",
+                "PE",
+                "CE Δ",
+                "Spike Confluence",
                 f"{self.signal.gamma_score:.1f}",
                 f"{self.signal.dominance:+.4f}",
                 "",
@@ -178,7 +178,7 @@ class RajProTable:
                 "0.30-0.35",
                 "Sell premium decay"
             ],
-            "1-OTM": [
+            f"1-OTM | CE {ce1_strike} | PE {pe1_strike}": [
                 f"{self.signal.premiums.get('ce1', 0):.2f}",
                 f"{self.signal.premiums.get('pe1', 0):.2f}",
                 f"Δ{deltas['ce'].get(1, 0):.2f}{deltas['markers_ce'].get(1, '')}",
@@ -189,7 +189,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(1, 0):.2f}{deltas['markers_pe'].get(1, '')}",
                 ""
             ],
-            "2-OTM": [
+            f"2-OTM | CE {ce2_strike} | PE {pe2_strike}": [
                 f"{self.signal.premiums.get('ce2', 0):.2f}",
                 f"{self.signal.premiums.get('pe2', 0):.2f}",
                 f"Δ{deltas['ce'].get(2, 0):.2f}{deltas['markers_ce'].get(2, '')}",
@@ -200,7 +200,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(2, 0):.2f}{deltas['markers_pe'].get(2, '')}",
                 ""
             ],
-            "3-OTM": [
+            f"3-OTM | CE {ce3_strike} | PE {pe3_strike}": [
                 f"{self.signal.premiums.get('ce3', 0):.2f}",
                 f"{self.signal.premiums.get('pe3', 0):.2f}",
                 f"Δ{deltas['ce'].get(3, 0):.2f}{deltas['markers_ce'].get(3, '')}",
@@ -211,7 +211,7 @@ class RajProTable:
                 f"Δ{deltas['pe'].get(3, 0):.2f}{deltas['markers_pe'].get(3, '')}",
                 ""
             ],
-            "4-OTM": [
+            f"4-OTM | CE {ce4_strike} | PE {pe4_strike}": [
                 f"{self.signal.premiums.get('ce4', 0):.2f}",
                 f"{self.signal.premiums.get('pe4', 0):.2f}",
                 f"Δ{deltas['ce'].get(4, 0):.2f}{deltas['markers_ce'].get(4, '')}",
