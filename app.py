@@ -760,35 +760,56 @@ def main():
 
             pcr_rows.append({
                 "Index": config["name"],
-                "ATM": f"{atm}",
-                "ATM PCR": f"{signal.pcr:.2f}",
-                "CE1 (OTM Call)": f"{ce1}",
-                "CE1 PCR": f"{signal.pcr_ce1:.2f}",
-                "CE2 (OTM Call)": f"{ce2}",
-                "CE2 PCR": f"{signal.pcr_ce2:.2f}",
-                "PE1 (OTM Put)": f"{pe1}",
-                "PE1 PCR": f"{signal.pcr_pe1:.2f}",
-                "PE2 (OTM Put)": f"{pe2}",
-                "PE2 PCR": f"{signal.pcr_pe2:.2f}",
+                "ATM": f"{atm}|{signal.pcr:.2f}",
+                "CE1 (OTM Call)": f"{ce1}|{signal.pcr_ce1:.2f}",
+                "CE2 (OTM Call)": f"{ce2}|{signal.pcr_ce2:.2f}",
+                "PE1 (OTM Put)": f"{pe1}|{signal.pcr_pe1:.2f}",
+                "PE2 (OTM Put)": f"{pe2}|{signal.pcr_pe2:.2f}",
+                "_ce1_val": signal.pcr_ce1,
+                "_ce2_val": signal.pcr_ce2,
+                "_pe1_val": signal.pcr_pe1,
+                "_pe2_val": signal.pcr_pe2,
             })
         else:
             pcr_rows.append({
                 "Index": STRIKE_CONFIG[symbol_key]["name"],
                 "ATM": "—",
-                "ATM PCR": "—",
                 "CE1 (OTM Call)": "—",
-                "CE1 PCR": "—",
                 "CE2 (OTM Call)": "—",
-                "CE2 PCR": "—",
                 "PE1 (OTM Put)": "—",
-                "PE1 PCR": "—",
                 "PE2 (OTM Put)": "—",
-                "PE2 PCR": "—",
+                "_ce1_val": 0,
+                "_ce2_val": 0,
+                "_pe1_val": 0,
+                "_pe2_val": 0,
             })
 
     pcr_df = pd.DataFrame(pcr_rows)
-    pcr_df = pcr_df.astype(str)
-    st.dataframe(pcr_df, width='stretch', height=200)
+
+    # Remove helper columns
+    display_df = pcr_df.drop(columns=['_ce1_val', '_ce2_val', '_pe1_val', '_pe2_val']).copy()
+
+    # Style the dataframe with conditional coloring
+    def style_pcr_row(row):
+        styles = [''] * len(row)
+        for i, col in enumerate(row.index):
+            val = row[col]
+            try:
+                if '|' in str(val):
+                    pcr_val = float(str(val).split('|')[1])
+
+                    if "CE" in str(col) and pcr_val > 1:
+                        # RED for CE when PCR > 1 (bearish)
+                        styles[i] = 'background-color: rgba(255, 0, 0, 0.4); color: white'
+                    elif "PE" in str(col) and pcr_val > 1:
+                        # GREEN for PE when PCR > 1 (bullish)
+                        styles[i] = 'background-color: rgba(0, 255, 0, 0.4); color: black'
+            except:
+                pass
+        return styles
+
+    styler = display_df.style.apply(style_pcr_row, axis=1)
+    st.dataframe(styler, width='stretch', height=200)
 
     # ─────────────────────────────────────────────
     # COMPLETE RAJ PRO TABLE (Matching Pine Script)
